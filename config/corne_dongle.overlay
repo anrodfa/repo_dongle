@@ -1,0 +1,13 @@
+#include "corne_trackball.dtsi"
+
+/*
+ * El dongle es la central, asi que es aqui donde el stream del trackball que
+ * reenvia la mitad derecha se convierte en movimiento HID de raton.
+ *
+ * Este es el unico sitio del arbol que habilita el listener: la izquierda lo
+ * deja deshabilitado (ver corne_left.overlay) y la derecha solo ata el
+ * input-split al sensor fisico.
+ */
+&trackball_listener {
+    status = "okay";
+};

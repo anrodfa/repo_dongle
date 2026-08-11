@@ -1,0 +1,66 @@
+/*
+ * Reenvio del trackball desde la mitad derecha (periferica) a la izquierda
+ * (central). Ambos firmwares deben conocer el mismo zmk,input-split.
+ */
+#include <input/processors.dtsi>
+#include <dt-bindings/zmk/input_transform.h>
+
+/ {
+    behaviors {
+        pmwcpi: pmwcpi {
+            compatible = "zmk,behavior-pmw-cpi";
+            #binding-cells = <2>;
+        };
+    };
+
+    input_processors {
+        pmw_temp_layer: pmw_temp_layer {
+            compatible = "zmk,input-processor-temp-layer";
+            #input-processor-cells = <2>;
+            require-prior-idle-ms = <200>;
+        };
+    };
+
+    split_inputs {
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        trackball_split: trackball_split@0 {
+            compatible = "zmk,input-split";
+            reg = <0>;
+        };
+    };
+
+    trackball_listener: trackball_listener {
+        compatible = "zmk,input-listener";
+        status = "disabled";
+        device = <&trackball_split>;
+        input-processors = <&pmw_temp_layer 4 1000>;
+
+        /* Mientras la capa 5 (scroll_layer) este activa, el trackball deja de
+         * mover el cursor y genera rueda: Y -> WHEEL, X -> HWHEEL.
+         *
+         * El divisor del scroll_scaler marca cuantas cuentas del sensor hacen
+         * falta por cada "click" de rueda: mas alto = scroll mas lento. El
+         * scaler acumula el resto (track-remainders), asi que 1/12 no pierde
+         * movimiento. Maximo permitido para multiplicador y divisor: 16.
+         *
+         * zip_scroll_transform invierte el sentido de la rueda vertical
+         * (INPUT_TRANSFORM_Y_INVERT -> WHEEL): bola hacia arriba = pagina hacia
+         * abajo. Va DESPUES del mapper porque el transform actua sobre
+         * WHEEL/HWHEEL, que es lo que el mapper acaba de generar. Para invertir
+         * tambien el horizontal: (INPUT_TRANSFORM_Y_INVERT | INPUT_TRANSFORM_X_INVERT).
+         *
+         * process-next hace que ADEMAS se sigan aplicando los procesadores del
+         * nodo padre, para que pmw_temp_layer mantenga viva la capa 4 (raton)
+         * mientras se hace scroll y los clicks sigan disponibles.
+         */
+        scroller {
+            layers = <5>;
+            input-processors = <&zip_xy_to_scroll_mapper>,
+                <&zip_scroll_transform (INPUT_TRANSFORM_Y_INVERT)>,
+                <&zip_scroll_scaler 1 16>;
+            process-next;
+        };
+    };
+};

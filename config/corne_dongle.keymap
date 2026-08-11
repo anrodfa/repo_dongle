@@ -1,0 +1,7 @@
+/*
+ * La central es quien ejecuta el keymap, y con dongle la central es esta placa.
+ * Se reutiliza tal cual el keymap de las mitades en vez de copiarlo, para no
+ * acabar con dos versiones que se desincronizan.
+ */
+
+#include "corne.keymap"

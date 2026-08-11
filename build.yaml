@@ -1,0 +1,20 @@
+---
+include:
+  # Dongle: la central. Va enchufado por USB y es quien ejecuta el keymap,
+  # emite el HID y recibe el trackball reenviado por la derecha.
+  - board: nice_nano//zmk
+    shield: corne_dongle
+    snippet: zmk-usb-logging
+  # Mitad izquierda: ahora periferica (antes era la central).
+  - board: nice_nano//zmk
+    shield: corne_left nice_view_adapter nice_view
+    snippet: zmk-usb-logging
+  # Mitad derecha: periferica con el trackball PMW3610, sin display.
+  - board: nice_nano//zmk
+    shield: corne_right
+    snippet: zmk-usb-logging
+  # Borra los emparejamientos guardados. Hay que flashear esto en las TRES
+  # piezas antes de poner el firmware de dongle: los bonds de la configuracion
+  # anterior (izquierda como central) impiden que se conecten al dongle.
+  - board: nice_nano//zmk
+    shield: settings_reset

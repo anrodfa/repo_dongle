@@ -1,0 +1,69 @@
+/*
+ * Lado derecho del Corne: trackball PMW3610 (breakout siderakb).
+ * Driver oficial de Zephyr  ->  compatible = "pixart,pmw3610"
+ *
+ * Cableado (nice!nano v2 derecho):
+ *   SDIO (datos)  -> D8  = P1.04   (MOSI y MISO al MISMO pin: linea bidireccional)
+ *   SCLK (reloj)  -> D9  = P1.06
+ *   NCS  (CS)     -> D2  = P0.17
+ *   MOT  (IRQ)    -> D3  = P0.20
+ *
+ * Se usa &spi1 a proposito: &spi0 comparte hardware con i2c0 (bus del OLED del
+ * shield Corne, que queda "okay"), asi que spi0 chocaria. spi1 (i2c1 sin usar)
+ * y el LED va por spi3 -> sin conflictos.
+ */
+
+#include <zephyr/dt-bindings/input/input-event-codes.h>
+#include "corne_trackball.dtsi"
+&pro_micro_i2c {
+    status = "disabled";
+};
+&pinctrl {
+    spi1_default: spi1_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 6)>,
+                <NRF_PSEL(SPIM_MOSI, 1, 4)>,
+                <NRF_PSEL(SPIM_MISO, 1, 4)>;
+        };
+    };
+
+    spi1_sleep: spi1_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 6)>,
+                <NRF_PSEL(SPIM_MOSI, 1, 4)>,
+                <NRF_PSEL(SPIM_MISO, 1, 4)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi1 {
+    status = "okay";
+    compatible = "nordic,nrf-spim";
+    pinctrl-0 = <&spi1_default>;
+    pinctrl-1 = <&spi1_sleep>;
+    pinctrl-names = "default", "sleep";
+    cs-gpios = <&gpio0 17 GPIO_ACTIVE_LOW>;   /* NCS -> P0.17 (D2) */
+
+    trackball: trackball@0 {
+        status = "okay";
+        compatible = "pixart,pmw3610";
+        reg = <0>;
+        spi-max-frequency = <2000000>;
+        motion-gpios = <&gpio0 20 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;  /* MOT -> P0.20 (D3) */
+        res-cpi = <1200>;
+
+        zephyr,axis-x = <INPUT_REL_X>;
+        zephyr,axis-y = <INPUT_REL_Y>;
+        force-awake;
+        /* Ajustar orientacion segun el montaje real del PCB: */
+        // swap-xy;
+        invert-x;
+        invert-y;
+    };
+};
+
+/* La derecha reenvia los eventos del sensor a la central mediante BLE split. */
+&trackball_split {
+    device = <&trackball>;
+};

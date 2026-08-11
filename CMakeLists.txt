@@ -1,0 +1,2 @@
+target_include_directories(app PRIVATE include)
+target_sources_ifdef(CONFIG_ZMK_BEHAVIOR_PMW_CPI app PRIVATE src/behaviors/behavior_pmw_cpi.c)

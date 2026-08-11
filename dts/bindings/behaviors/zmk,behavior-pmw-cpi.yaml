@@ -1,0 +1,5 @@
+description: PMW3610 CPI behavior
+
+compatible: "zmk,behavior-pmw-cpi"
+
+include: two_param.yaml

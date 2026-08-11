@@ -1,0 +1,26 @@
+#include "corne_trackball.dtsi"
+
+/*
+ * Lado izquierdo del Corne: nice!view (display SPI).
+ * Este override del CS de la nice!view estaba antes en corne.keymap (comun a los
+ * dos lados). Se mueve aqui porque el lado derecho ya NO lleva el shield nice_view,
+ * y referenciar &nice_view_spi alli romperia la compilacion.
+ */
+
+&nice_view_spi {
+    cs-gpios = <&pro_micro 8 GPIO_ACTIVE_HIGH>;
+};
+
+/*
+ * Con dongle la izquierda YA NO es la central: no convierte nada a HID, asi que
+ * el listener se queda deshabilitado (lo habilita corne_dongle.overlay).
+ *
+ * corne_trackball.dtsi se sigue incluyendo arriba porque el keymap referencia
+ * &pmwcpi, y las perifericas tambien compilan el keymap. Lo que si conviene
+ * apagar es el input-split: aqui no hay ningun sensor detras, y dejarlo activo
+ * con el mismo reg=<0> que usa el de la derecha solo puede confundir a la
+ * central cuando registre las dos perifericas.
+ */
+&trackball_split {
+    status = "disabled";
+};

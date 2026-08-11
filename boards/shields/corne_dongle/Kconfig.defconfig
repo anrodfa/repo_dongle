@@ -1,0 +1,25 @@
+if SHIELD_CORNE_DONGLE
+
+config ZMK_KEYBOARD_NAME
+    default "Arf_Corne"
+
+# El dongle es la central del split: las dos mitades son perifericas.
+config ZMK_SPLIT
+    default y
+
+config ZMK_SPLIT_ROLE_CENTRAL
+    default y
+
+# Izquierda + derecha = 2 perifericas.
+config ZMK_SPLIT_BLE_CENTRAL_PERIPHERALS
+    default 2
+
+# Conexiones BLE simultaneas = perifericas (2) + perfiles de host (5).
+# Si se cambia el numero de perifericas hay que recalcular estos dos.
+config BT_MAX_CONN
+    default 7
+
+config BT_MAX_PAIRED
+    default 7
+
+endif
