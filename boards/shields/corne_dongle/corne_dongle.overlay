@@ -8,23 +8,29 @@
  * 1. kscan mock (0 filas, 0 columnas). ZMK exige un kscan elegido, pero aqui no
  *    hay matriz que escanear: las pulsaciones llegan por BLE desde las mitades.
  *
- * 2. La matriz de transformacion del Corne. Las perifericas ya envian
- *    posiciones globales (0..41), asi que esta tabla no se usa para traducir
- *    nada; hace falta porque ZMK valida que el keymap tenga tantas capas de
- *    bindings como posiciones declara la central. Es copia literal del
- *    default_transform del shield corne oficial: si algun dia cambia alli el
- *    numero de teclas, hay que sincronizarlo aqui.
+ * 2. El physical layout del Corne. Las perifericas ya envian posiciones
+ *    globales (0..41), asi que esta tabla no traduce nada; hace falta porque
+ *    ZMK valida que el keymap tenga tantos bindings por capa como posiciones
+ *    declara la central.
+ *
+ *    Se reutiliza el layout de 6 columnas del propio ZMK
+ *    (layouts/foostan/corne/6column.dtsi), igual que hace el shield corne
+ *    oficial, y se le cuelga una matriz de transformacion identica a su
+ *    default_transform. Asi el dongle y las mitades declaran exactamente las
+ *    mismas 42 posiciones sin depender de una copia hecha a mano.
  */
 
 #include <dt-bindings/zmk/matrix_transform.h>
 
+#include <layouts/foostan/corne/6column.dtsi>
+
 / {
     chosen {
         zmk,kscan = &mock_kscan;
-        zmk,matrix-transform = &default_transform;
+        zmk,physical-layout = &foostan_corne_6col_layout;
     };
 
-    mock_kscan: kscan_0 {
+    mock_kscan: mock_kscan_0 {
         compatible = "zmk,kscan-mock";
         columns = <0>;
         rows = <0>;
@@ -42,4 +48,8 @@ RC(2,0) RC(2,1) RC(2,2) RC(2,3) RC(2,4) RC(2,5)  RC(2,6) RC(2,7) RC(2,8) RC(2,9)
                         RC(3,3) RC(3,4) RC(3,5)  RC(3,6) RC(3,7) RC(3,8)
         >;
     };
+};
+
+&foostan_corne_6col_layout {
+    transform = <&default_transform>;
 };
