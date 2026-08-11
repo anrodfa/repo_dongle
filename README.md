@@ -38,11 +38,27 @@ Los cuatro `.uf2` salen del mismo run de GitHub Actions.
 
 ## Estado
 
-**Compila** (las cuatro imagenes salen del CI). **Sin probar en hardware**: no
-se ha flasheado nada todavia, asi que no hay ninguna confirmacion de que las
-mitades se conecten al dongle ni de que el trackball llegue hasta el host.
+**Funciona.** Flasheado y probado: las dos mitades se emparejan con el dongle y
+el teclado escribe correctamente.
 
-Los puntos con mas probabilidad de dar guerra al probarlo, por orden:
+Pendiente de confirmar: el trackball (movimiento, scroll en la capa 5 y el
+cambio de CPI con `&pmwcpi`) y que `&rgb_ug` llegue a las dos mitades desde el
+dongle.
+
+### Dos fallos que costaron encontrar
+
+1. **`undefined node label 'led_strip'`** al compilar. `led_strip` no lo define
+   la placa nice!nano sino cada shield, en `boards/<placa>.overlay`. El shield
+   del dongle no lo tenia y `corne.keymap:16` hace `&led_strip { ... }`, que
+   compilan las tres piezas. Ver
+   `boards/shields/corne_dongle/boards/nice_nano_nrf52840_zmk.overlay`.
+
+2. **Teclas corridas un lugar** (la Q daba ESC, la Y daba T). El shield del
+   dongle declaraba solo `foostan_corne_6col_layout`, y las mitades declaran los
+   dos layouts, 5col y 6col. Los physical layouts de la central tienen que ser
+   identicos a los de las demas piezas.
+
+Los puntos con mas probabilidad de dar guerra todavia, por orden:
 
 - **`&pmwcpi`.** Usa `locality = BEHAVIOR_LOCALITY_EVENT_SOURCE`, asi que se
   ejecuta en la mitad donde se pulsa la tecla. Sus teclas estan en el bloque
