@@ -36,10 +36,13 @@ dongle. Hay que limpiarlos **antes**:
 
 Los cuatro `.uf2` salen del mismo run de GitHub Actions.
 
-## Sin verificar todavia
+## Estado
 
-Nada de esto se ha compilado ni probado aun. Los puntos con mas probabilidad de
-dar guerra, por orden:
+**Compila** (las cuatro imagenes salen del CI). **Sin probar en hardware**: no
+se ha flasheado nada todavia, asi que no hay ninguna confirmacion de que las
+mitades se conecten al dongle ni de que el trackball llegue hasta el host.
+
+Los puntos con mas probabilidad de dar guerra al probarlo, por orden:
 
 - **`&pmwcpi`.** Usa `locality = BEHAVIOR_LOCALITY_EVENT_SOURCE`, asi que se
   ejecuta en la mitad donde se pulsa la tecla. Sus teclas estan en el bloque
