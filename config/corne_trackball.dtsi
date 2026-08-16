@@ -62,5 +62,25 @@
                 <&zip_scroll_scaler 1 16>;
             process-next;
         };
+
+        /* Interruptor de la capa-raton automatica.
+         *
+         * Mientras la capa 6 (no_auto_mouse_layer) este activa, este nodo
+         * "captura" el evento: no le aplica ningun procesador y, al NO llevar
+         * process-next, el listener corta ahi y no llega a ejecutar los
+         * procesadores del nodo padre, o sea pmw_temp_layer. Resultado: la bola
+         * sigue moviendo el cursor con normalidad (el evento se envia igual al
+         * host, solo se saltan los procesadores), pero ya no salta sola a la
+         * capa 4. Para usar el raton se entra a mano con &lt 4 (posicion 37).
+         *
+         * Se enciende y se apaga con el combo J+K (&tog 6) del keymap.
+         *
+         * Va DESPUES de scroller a proposito: los hijos se evaluan de arriba
+         * abajo, asi que el scroll de la capa 5 se sigue aplicando (lleva
+         * process-next) y es este nodo el que corta despues.
+         */
+        no_auto_mouse {
+            layers = <6>;
+        };
     };
 };
