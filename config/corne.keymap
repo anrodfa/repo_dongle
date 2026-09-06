@@ -235,7 +235,7 @@
 // 4
                         bindings = <   
    &trans    &trans    &kp LC(C)   &mkp MCLK     &kp LC(V) &trans    	&pmwcpi 1 200  &trans   &mkp MCLK &trans    &trans  &trans 
-   &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &trans       &pmwcpi 0 1200 &mkp RCLK &mo 5 &mkp LCLK  &trans  &trans 
+   &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &trans       &pmwcpi 0 1200 &mkp LCLK &mo 5    &mkp RCLK &trans  &trans 
    &trans    &trans   &kp LC(X)    &shift_mclk   &trans    &trans       &pmwcpi 2 200  &trans  &shift_mclk   &trans   &trans  &trans
                                    &trans        &trans    &trans       &trans  	   &trans   &trans
                         >;
