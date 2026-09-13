@@ -234,9 +234,9 @@
 // central a la vez mientras la tengas pulsada (ver macro en behaviors).
 // 4
                         bindings = <   
-   &trans    &trans    &kp LC(C)   &mkp MCLK     &kp LC(V) &trans    	&pmwcpi 1 200  &mkp LCLK &mo 5       &mkp RCLK  &trans  &trans 
-   &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &trans       &pmwcpi 0 1200 &trans    &mkp MCLK   &trans  &trans  &trans 
-   &trans    &trans   &kp LC(X)    &shift_mclk   &trans    &trans       &pmwcpi 2 200  &trans    &shift_mclk &trans   &trans  &trans
+   &trans    &trans    &kp LC(C)   &mkp MCLK     &kp LC(V) &trans    	&pmwcpi 1 200  &mkp LCLK      &mo 5       &mkp RCLK  &trans  &trans 
+   &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &trans       &pmwcpi 0 1200 &shift_mclk    &mkp MCLK   &trans  &trans  &trans 
+   &trans    &trans   &kp LC(X)    &shift_mclk   &trans    &trans       &pmwcpi 2 200  &trans         &trans  &trans   &trans  &trans
                                    &trans        &trans    &trans       &trans  	   &trans    &trans
                         >;
                 };
