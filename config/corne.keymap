@@ -234,10 +234,10 @@
 // central a la vez mientras la tengas pulsada (ver macro en behaviors).u
 // 4
                         bindings = <   
-   &trans    &trans    &trans      &trans        &trans    &trans      &kp LC(V)   &mkp LCLK      &mo 5        &mkp RCLK  &pmwcpi 1 200  &trans 
-   &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &kp LC(F)   &kp LC(C)   &shift_mclk    &mkp MCLK    &kp LC(Z)  &pmwcpi 0 1200  &trans 
-   &trans    &trans    &trans      &shift_mclk   &trans    &kp LC(B)   &kp LC(X)   &trans         &trans       &trans     &pmwcpi 2 200  &trans
-                                   &trans        &trans    &trans      &trans  	   &trans    &trans
+   &trans    &trans    &trans      &trans        &trans    &trans      &trans      &mkp LCLK      &mo 5       &mkp RCLK  &pmwcpi 1 200  &trans 
+   &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &kp LC(F)   &trans      &shift_mclk    &mkp MCLK   &trans     &pmwcpi 0 1200  &trans 
+   &trans    &trans    &trans      &shift_mclk   &trans    &kp LC(B)   &kp LC(X)   &kp LC(V)      &kp LC(C)   &trans     &pmwcpi 2 200  &trans
+                                   &trans        &trans    &trans      &trans  	   &trans    &kp LC(Z)
                         >;
                 };
                 scroll_layer {
