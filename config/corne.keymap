@@ -95,14 +95,17 @@
 };
 / {
     behaviors {
+        /* Doble clic izquierdo en una sola tecla (posicion 6 de la capa 4).
+         * wait-ms/tap-ms bajos a proposito: con los 100 ms por defecto de ZMK
+         * pasarian 200 ms entre pulsaciones y el host puede leerlo como
+         * arrastre en vez de doble clic. */
         dbl_click: dbl_click {
             compatible = "zmk,behavior-macro";
+            label = "DBL_CLICK";
             #binding-cells = <0>;
-            bindings
-                = <&macro_press &mkp LCLK>
-                , <&macro_release &mkp LCLK>
-                , <&macro_press &mkp LCLK>
-                , <&macro_release &mkp LCLK>;                ;
+            wait-ms = <40>;
+            tap-ms = <40>;
+            bindings = <&macro_tap &mkp LCLK &mkp LCLK>;
         };
           bt0_rgb: behavior_bt0_rgb {
             compatible = "zmk,behavior-macro";
