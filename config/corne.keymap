@@ -95,7 +95,16 @@
 };
 / {
     behaviors {
-        bt0_rgb: behavior_bt0_rgb {
+        dbl_click: dbl_click {
+            compatible = "zmk,behavior-macro";
+            #binding-cells = <0>;
+            bindings
+                = <&macro_press &mkp LCLK>
+                , <&macro_release &mkp LCLK>
+                , <&macro_press &mkp LCLK>
+                , <&macro_release &mkp LCLK>;                ;
+        };
+          bt0_rgb: behavior_bt0_rgb {
             compatible = "zmk,behavior-macro";
             label = "BT0_RGB";
             #binding-cells = <0>;
@@ -234,7 +243,7 @@
 // central a la vez mientras la tengas pulsada (ver macro en behaviors).u
 // 4
                         bindings = <   
-   &trans    &trans    &trans      &trans        &trans    &trans      &trans      &mkp LCLK      &mo 5       &mkp RCLK  &pmwcpi 1 200  &trans 
+   &trans    &trans    &trans      &trans        &trans    &trans      &dbl_click  &mkp LCLK      &mo 5       &mkp RCLK  &pmwcpi 1 200  &trans 
    &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &kp LC(F)   &trans      &shift_mclk    &mkp MCLK   &trans     &pmwcpi 0 1200  &trans 
    &trans    &trans    &trans      &shift_mclk   &trans    &kp LC(B)   &kp LC(X)   &kp LC(V)      &kp LC(C)   &trans     &pmwcpi 2 200  &trans
                                    &trans        &trans    &trans      &trans  	   &trans    &kp LC(Z)
