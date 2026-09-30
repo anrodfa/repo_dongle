@@ -248,8 +248,8 @@
                         bindings = <   
    &trans    &trans    &trans      &trans        &trans    &trans      &dbl_click  &mkp LCLK      &mo 5       &mkp RCLK  &pmwcpi 1 200  &trans 
    &trans    &trans    &mkp RCLK   &mo 5         &mkp LCLK &kp LC(F)   &kp LC(X)   &shift_mclk    &mkp MCLK   &trans     &pmwcpi 0 1200  &trans 
-   &trans    &trans    &trans      &shift_mclk   &trans    &kp LC(B)   &kp LC(C)   &kp LC(V)      &trans      &trans      &pmwcpi 2 200  &trans
-                                   &trans        &trans    &trans      &trans  	   &trans         &kp LC(Z)
+   &trans    &trans    &trans      &shift_mclk   &trans    &kp LC(B)   &kp LC(C)   &kp LC(V)      &kp LGUI(H) &trans      &pmwcpi 2 200  &trans
+                                   &trans        &trans    &trans      &trans  	   &kp LGUI         &kp LC(Z)
                         >;
                 };
                 scroll_layer {
