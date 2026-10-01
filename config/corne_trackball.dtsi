@@ -35,7 +35,9 @@
         compatible = "zmk,input-listener";
         status = "disabled";
         device = <&trackball_split>;
-        input-processors = <&pmw_temp_layer 4 1000>;
+        /* Sin procesadores en el nodo padre: la capa-raton automatica
+         * (pmw_temp_layer) vive en el hijo auto_mouse y solo actua con la
+         * capa 6 activa. */
 
         /* Mientras la capa 5 (scroll_layer) este activa, el trackball deja de
          * mover el cursor y genera rueda: Y -> WHEEL, X -> HWHEEL.
@@ -51,9 +53,9 @@
          * WHEEL/HWHEEL, que es lo que el mapper acaba de generar. Para invertir
          * tambien el horizontal: (INPUT_TRANSFORM_Y_INVERT | INPUT_TRANSFORM_X_INVERT).
          *
-         * process-next hace que ADEMAS se sigan aplicando los procesadores del
-         * nodo padre, para que pmw_temp_layer mantenga viva la capa 4 (raton)
-         * mientras se hace scroll y los clicks sigan disponibles.
+         * process-next hace que ADEMAS se sigan evaluando los nodos siguientes,
+         * para que auto_mouse (si la capa 6 esta activa) mantenga viva la capa 4
+         * (raton) mientras se hace scroll y los clicks sigan disponibles.
          */
         scroller {
             layers = <5>;
@@ -65,22 +67,23 @@
 
         /* Interruptor de la capa-raton automatica.
          *
-         * Mientras la capa 6 (no_auto_mouse_layer) este activa, este nodo
-         * "captura" el evento: no le aplica ningun procesador y, al NO llevar
-         * process-next, el listener corta ahi y no llega a ejecutar los
-         * procesadores del nodo padre, o sea pmw_temp_layer. Resultado: la bola
-         * sigue moviendo el cursor con normalidad (el evento se envia igual al
-         * host, solo se saltan los procesadores), pero ya no salta sola a la
-         * capa 4. Para usar el raton se entra a mano con &lt 4 (posicion 37).
+         * Solo mientras la capa 6 (auto_mouse_layer) este activa se aplica
+         * pmw_temp_layer: mover la bola activa sola la capa 4 durante 1000 ms.
+         * Con la capa 6 apagada la bola mueve el cursor igual, pero a la capa 4
+         * se entra a mano con &lt 4 (posicion 38).
          *
-         * Se enciende y se apaga con el combo J+K (&tog 6) del keymap.
+         * Se enciende y se apaga con &tog 6 (capa 1, posicion 18). Como al
+         * arrancar ninguna capa esta conmutada, la capa-raton automatica
+         * empieza APAGADA en cada encendido.
          *
          * Va DESPUES de scroller a proposito: los hijos se evaluan de arriba
-         * abajo, asi que el scroll de la capa 5 se sigue aplicando (lleva
-         * process-next) y es este nodo el que corta despues.
+         * abajo y scroller lleva process-next, asi que durante el scroll se
+         * aplican los dos.
          */
-        no_auto_mouse {
+        auto_mouse {
             layers = <6>;
+            input-processors = <&pmw_temp_layer 4 1000>;
+            process-next;
         };
     };
 };
