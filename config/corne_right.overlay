@@ -66,4 +66,11 @@
 /* La derecha reenvia los eventos del sensor a la central mediante BLE split. */
 &trackball_split {
     device = <&trackball>;
+    /* El sensor va inclinado ~35 grados: ve el eje Y en escorzo y le llega
+     * multiplicado por cos(35) ~ 0,82, asi que un circulo salia como elipse
+     * horizontal. Se compensa multiplicando Y por 1/cos(35) ~ 1,22 (11/9).
+     * Se hace aqui, antes de enviar a la central, para que la correccion
+     * valga tambien para el scroll de la capa 5. Si aun queda elipse,
+     * probar 6/5 (1,20) o 16/13 (1,23); maximo 16 en ambos. */
+    input-processors = <&zip_y_scaler 11 9>;
 };
