@@ -190,7 +190,7 @@
 // 1
                         bindings = <
    &trans &kp RA(GRAVE)    &kp LS(N8)          &kp LS(N9)     &kp LS(N5)   &kp AT         &kp LC(Z)  &kp N7   &kp N8  &kp N9  &kp KP_DIVIDE   &trans
-   &trans &kp KP_ASTERISK  &kp KP_PLUS         &kp KP_MINUS   &kp LS(N6)   &kp MINUS      &tog 6     &kp N4   &kp N5  &kp N6  &kp KP_ASTERISK &trans
+   &trans &kp KP_ASTERISK  &kp KP_PLUS         &kp KP_MINUS   &kp LS(N6)   &kp MINUS      &kp DOT    &kp N4   &kp N5  &kp N6  &kp KP_ASTERISK &trans
    &trans &kp NON_US_BSLH  &kp LS(NON_US_BSLH) &kp LS(FSLH)   &kp RA(N2)   &kp DLLR       &kp N0     &kp N1   &kp N2  &kp N3  &kp RPAR        &trans
                           	                   &trans         &trans   &trans         &trans     &trans   &kp RALT  
                         >;
@@ -203,7 +203,7 @@
 //             |    |     |     |     |     |    | ALT |
 // 2
                         bindings = <
-   &none    &none      &none       &none     &none      &kp LS(GRAVE)  &kp RA(LBKT)  &kp RA(RBKT)   &kp RA(SQT)  &kp RA(BSLH)  &kp PSCRN  &none
+   &none    &tog 6     &none       &none     &none      &kp LS(GRAVE)  &kp RA(LBKT)  &kp RA(RBKT)   &kp RA(SQT)  &kp RA(BSLH)  &kp PSCRN  &none
    &none    &none      &none       &none     &none      &kp GRAVE      &kp PLUS      &kp LS(MINUS)  &kp RA(N1)   &kp UP        &kp SEMI   &none
    &none    &none      &none       &kp BSLH  &kp RA(N3) &kp RA(N4)     &kp EQUAL     &kp EXCL       &kp LEFT     &kp DOWN      &kp RIGHT  &none
                                    &trans    &trans     &trans         &trans        &trans         &trans
