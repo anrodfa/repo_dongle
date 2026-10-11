@@ -1,9 +1,12 @@
 ---
 include:
   # Dongle: la central. Va enchufado por USB y es quien ejecuta el keymap,
-  # emite el HID y recibe el trackball reenviado por la derecha.
+  # emite el HID y recibe el trackball reenviado por la derecha. Lleva la
+  # pantalla Prospector (ST7789V2 240x280).
   - board: nice_nano//zmk
-    shield: corne_dongle
+    # prospector_adapter va DETRAS de corne_dongle: su overlay apunta a &st7789,
+    # que se declara en el overlay de placa de corne_dongle.
+    shield: corne_dongle prospector_adapter
     snippet: zmk-usb-logging
   # Mitades: perifericas a bateria, sin USB en uso normal, asi que van SIN el
   # snippet zmk-usb-logging (el log por USB solo anade carga y consumo). Para

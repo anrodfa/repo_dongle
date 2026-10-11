@@ -1,5 +1,41 @@
 /*
- * Tira WS2812 "fantasma" del dongle.
+ * Hardware del dongle sobre la nice!nano: la tira WS2812 "fantasma" y la
+ * pantalla Prospector (ST7789V2 240x280) con su sensor de luz APDS9960.
+ *
+ * Reparto de buses. En el nRF52840 spi0<->i2c0 y spi1<->i2c1 comparten
+ * instancia, y spi3 es el unico SPIM que llega a 32 MHz:
+ *   - pantalla  -> spi3
+ *   - APDS9960  -> i2c0 (pinctrl por defecto de la placa: SDA D2, SCL D3)
+ *   - tira      -> spi1
+ *
+ * Cableado (los numeros D son los de la serigrafia pro micro):
+ *
+ *   Pantalla   nice!nano   GPIO
+ *   SCK/SCL    D9          P1.06
+ *   MOSI/SDA   D7          P0.11
+ *   CS         D8          P1.04
+ *   DC         D6          P1.00
+ *   RST        D5          P0.24
+ *   BL/BLK     D4          P0.22   (pwm1 canal 0)
+ *
+ *   APDS9960   nice!nano   GPIO
+ *   SDA        D2          P0.17
+ *   SCL        D3          P0.20
+ *   INT        D14         P1.11
+ *
+ * El ST7789 es solo escritura: no hay MISO.
+ *
+ * El shield prospector_adapter va DETRAS de corne_dongle en build.yaml. Su
+ * overlay hace `chosen { zephyr,display = &st7789; }` y su codigo usa los
+ * labels st7789, disp_bl (hijo de un pwm-leds) y apds9960, asi que esos tres
+ * nombres no se pueden cambiar. Esto es la adaptacion del xiao_ble_zmk.overlay
+ * del modulo (rama feat/new-status-screens) a los pines de la nice!nano.
+ */
+
+#include <dt-bindings/led/led.h>
+
+/* ---------------------------------------------------------------------------
+ * Tira WS2812 "fantasma"
  *
  * El dongle no lleva ningun LED, pero necesita este nodo por dos motivos:
  *
@@ -13,22 +49,21 @@
  *    ejecuta en la central y se reenvia a las dos mitades, que son las que
  *    tienen LEDs de verdad. Aqui solo hace falta que exista.
  *
- * Es copia literal del equivalente del shield corne oficial
- * (app/boards/shields/corne/boards/nice_nano_nrf52840_zmk.overlay), para no
- * inventarse ni pines ni parametros SPI. El controlador saca datos por P0.06 a
- * un cable que no existe, que es exactamente lo que queremos.
- */
-
-#include <dt-bindings/led/led.h>
+ * Los parametros WS2812 son copia del shield corne oficial. Antes vivia en
+ * spi3, pero spi3 es para la pantalla. Va en spi1 con un pinctrl propio: el
+ * spi1_default de la placa pone MISO en P1.11 (D14), que es el INT del sensor,
+ * y MOSI en P0.10, que es pin NFC. Aqui solo MOSI, en P0.06 (D1), el mismo pin
+ * de antes, sin cable.
+ * ------------------------------------------------------------------------- */
 
 &pinctrl {
-    spi3_default: spi3_default {
+    ws2812_spi1_default: ws2812_spi1_default {
         group1 {
             psels = <NRF_PSEL(SPIM_MOSI, 0, 6)>;
         };
     };
 
-    spi3_sleep: spi3_sleep {
+    ws2812_spi1_sleep: ws2812_spi1_sleep {
         group1 {
             psels = <NRF_PSEL(SPIM_MOSI, 0, 6)>;
             low-power-enable;
@@ -36,12 +71,16 @@
     };
 };
 
-&spi3 {
+&i2c1 {
+    status = "disabled";
+};
+
+&spi1 {
     compatible = "nordic,nrf-spim";
     status = "okay";
 
-    pinctrl-0 = <&spi3_default>;
-    pinctrl-1 = <&spi3_sleep>;
+    pinctrl-0 = <&ws2812_spi1_default>;
+    pinctrl-1 = <&ws2812_spi1_sleep>;
     pinctrl-names = "default", "sleep";
 
     led_strip: ws2812@0 {
@@ -63,5 +102,131 @@
 / {
     chosen {
         zmk,underglow = &led_strip;
+    };
+};
+
+/* ---------------------------------------------------------------------------
+ * Pantalla ST7789V2 240x280
+ * ------------------------------------------------------------------------- */
+
+&pinctrl {
+    spi3_default: spi3_default {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 6)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 11)>;
+        };
+    };
+
+    spi3_sleep: spi3_sleep {
+        group1 {
+            psels = <NRF_PSEL(SPIM_SCK, 1, 6)>,
+                    <NRF_PSEL(SPIM_MOSI, 0, 11)>;
+            low-power-enable;
+        };
+    };
+
+    /*
+     * nordic,invert viene tal cual del overlay de la XIAO, que usa esta misma
+     * pantalla. Si la pantalla se OSCURECE al subir el brillo, quitarlo.
+     */
+    pwm1_default: pwm1_default {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 22)>;
+            nordic,invert;
+        };
+    };
+
+    pwm1_sleep: pwm1_sleep {
+        group1 {
+            psels = <NRF_PSEL(PWM_OUT0, 0, 22)>;
+            low-power-enable;
+        };
+    };
+};
+
+&spi3 {
+    compatible = "nordic,nrf-spim";
+    status = "okay";
+
+    pinctrl-0 = <&spi3_default>;
+    pinctrl-1 = <&spi3_sleep>;
+    pinctrl-names = "default", "sleep";
+
+    cs-gpios = <&pro_micro 8 GPIO_ACTIVE_LOW>;
+};
+
+&pwm1 {
+    status = "okay";
+    pinctrl-0 = <&pwm1_default>;
+    pinctrl-1 = <&pwm1_sleep>;
+    pinctrl-names = "default", "sleep";
+};
+
+/ {
+    pwmleds {
+        compatible = "pwm-leds";
+        disp_bl: pwm_led_1 {
+            pwms = <&pwm1 0 PWM_MSEC(1) PWM_POLARITY_NORMAL>;
+        };
+    };
+
+    mipi_dbi {
+        compatible = "zephyr,mipi-dbi-spi";
+        spi-dev = <&spi3>;
+        dc-gpios = <&pro_micro 6 GPIO_ACTIVE_HIGH>;
+        reset-gpios = <&pro_micro 5 GPIO_ACTIVE_LOW>;
+        write-only;
+        #address-cells = <1>;
+        #size-cells = <0>;
+
+        /* Parametros del panel: copia literal del overlay de la XIAO. */
+        st7789: st7789v@0 {
+            compatible = "sitronix,st7789v";
+            mipi-max-frequency = <30000000>;
+            mipi-mode = "MIPI_DBI_MODE_SPI_4WIRE";
+            reg = <0>;
+            width = <240>;
+            height = <280>;
+            x-offset = <0>;
+            y-offset = <20>;
+            vcom = <0x19>;
+            gctrl = <0x35>;
+            vrhs = <0x12>;
+            vdvs = <0x20>;
+            mdac = <0x00>;
+            gamma = <0x01>;
+            colmod = <0x05>;
+            lcm = <0x2c>;
+            porch-param = [ 0c 0c 00 33 33 ];
+            cmd2en-param = [ 5a 69 02 01 ];
+            pwctrl1-param = [ a4 a1 ];
+            pvgam-param = [ D0 04 0D 11 13 2B 3F 54 4C 18 0D 0B 1F 23 ];
+            nvgam-param = [ D0 04 0C 11 13 2C 3F 44 51 2F 1F 1F 20 23 ];
+            ram-param = [ 00 F0 ];
+            rgb-param = [ CD 08 14 ];
+        };
+    };
+};
+
+/* ---------------------------------------------------------------------------
+ * Sensor de luz APDS9960
+ *
+ * El nodo se declara ya para que, cuando llegue el sensor, solo haya que
+ * cambiar CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR en corne_dongle.conf.
+ * Mientras esa opcion este a n el driver no se compila y el nodo no hace nada.
+ * ------------------------------------------------------------------------- */
+
+&spi0 {
+    status = "disabled";
+};
+
+&i2c0 {
+    status = "okay";
+
+    apds9960: apds9960@39 {
+        compatible = "avago,apds9960";
+        status = "okay";
+        reg = <0x39>;
+        int-gpios = <&pro_micro 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
     };
 };

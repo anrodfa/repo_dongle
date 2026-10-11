@@ -163,6 +163,7 @@
         keymap {
                 compatible = "zmk,keymap";
                 default_layer {
+                        display-name = "Base";
 // -----------------------------------------------------------------------------------------
 // |   0  |  1  |  2  |  3  |  4  |  5  |   |  6  |  7   |  8  |  9  |  10 | 11 | 
 // |  12  | 13  | 14  | 15  |  16 |  17 |   | 18  |  19  |  20 |  21 | 22  | 23 |
@@ -182,6 +183,7 @@
                         >;
                 };
                 lower_layer {
+                        display-name = "Lower";
 // -----------------------------------------------------------------------------------------
 // |      | \ |  (  |  )  |  %  |  "  |   |  ,  |  7  |  8  |  9  | BKSP|      |
 // |      | * |  +  |  -  |  &  |  '  |   |  .  |  4  |  5  |  6  |  /  |      |
@@ -196,6 +198,7 @@
                         >;
                 };
                 raise_layer {
+                        display-name = "Raise";
 // -----------------------------------------------------------------------------------------
 // |     |     |    |     |     |  ª  |     | [  |  ]  |  {   |  }    | PSCR  |    |
 // |     |     |    |     |     |  º  |     | ¿  |  ?  |  #   |  UP   |       |    |
@@ -210,6 +213,7 @@
                         >;
                 };
                 rgb_layer {
+                        display-name = "RGB";
 // -----------------------------------------------------------------------------------------
 // | F1  | Tono+ |  Brillo+| nada     | SCRL_UP | SCRL_DOWN |   |  F7  |  F8  |  F9  | F10  |    |
 // | F7  | Tono- |  Brillo- | central |izq      |derecho    |   |  F4  |  F5  |  F6  | F11  |    |
@@ -224,6 +228,7 @@
                         >;
                 };
                 mouse_layer {
+                        display-name = "Mouse";
 // -----------------------------------------------------------------------------------------
 // |     |     |     |     |     | |   |     |  ctrl c | ctrl v  | ctrl x  |     |     |
 // |     |     |     |     |     | |   |     | LCLK    | MCLK    | RCLK|     |     |
@@ -246,6 +251,7 @@
                         >;
                 };
                 scroll_layer {
+                        display-name = "Scroll";
 // -----------------------------------------------------------------------------------------
 // Capa "modificadora" del trackball: no cambia ninguna tecla (todo &trans), solo
 // existe para que el input listener (config/corne_trackball.dtsi -> nodo "scroller")
@@ -263,6 +269,7 @@
                         >;
                 };
                 auto_mouse_layer {
+                        display-name = "Auto";
 // -----------------------------------------------------------------------------------------
 // Segunda capa "bandera" del trackball: igual que scroll_layer, no cambia ninguna
 // tecla (todo &trans), solo existe para que el input listener
