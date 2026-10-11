@@ -7,7 +7,10 @@ include:
     # prospector_adapter va DETRAS de corne_dongle: su overlay apunta a &st7789,
     # que se declara en el overlay de placa de corne_dongle.
     shield: corne_dongle prospector_adapter
-    snippet: zmk-usb-logging
+    # SIN zmk-usb-logging: el bootloader 0.6.0 de estos clones solo acepta
+    # firmwares hasta 0xAD000 (540 KB) y con pantalla + logging no cabe. Para
+    # depurar, volver a anadir "snippet: zmk-usb-logging" temporalmente y
+    # quitar el shield prospector_adapter.
   # Mitades: perifericas a bateria, sin USB en uso normal, asi que van SIN el
   # snippet zmk-usb-logging (el log por USB solo anade carga y consumo). Para
   # depurar una mitad, volver a anadirle "snippet: zmk-usb-logging".
