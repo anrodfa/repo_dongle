@@ -2,3 +2,38 @@ config ZMK_BEHAVIOR_PMW_CPI
     bool
     default y
     depends on DT_HAS_ZMK_BEHAVIOR_PMW_CPI_ENABLED
+
+# --- Pantalla del dongle: brillo segun el sensor de luz APDS9960 -------------
+# Sustituye al hilo del sensor del modulo Prospector (que se deja con
+# PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR=n): ese no apaga la pantalla en reposo y
+# espera lecturas de 0 a 100. Ver src/display_als_backlight.c.
+
+config DONGLE_ALS
+    bool "Brillo de la pantalla del dongle segun el sensor de luz APDS9960"
+    depends on SHIELD_PROSPECTOR_ADAPTER && !PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
+    select SENSOR
+
+if DONGLE_ALS
+
+config DONGLE_ALS_MIN_READING
+    int "Lectura del sensor a partir de la cual se usa el brillo minimo"
+    default 5
+
+config DONGLE_ALS_MAX_READING
+    int "Lectura del sensor a partir de la cual se usa el brillo maximo"
+    default 2000
+
+config DONGLE_ALS_MIN_BRIGHTNESS
+    int "Brillo minimo (%)"
+    range 1 100
+    default 5
+
+config DONGLE_ALS_MAX_BRIGHTNESS
+    int "Brillo maximo (%)"
+    range 1 100
+    default 100
+
+config DONGLE_ALS_SHOW_READING
+    bool "Mostrar la lectura del sensor y el brillo en una esquina (calibracion)"
+
+endif
