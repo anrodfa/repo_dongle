@@ -211,9 +211,10 @@
 /* ---------------------------------------------------------------------------
  * Sensor de luz APDS9960
  *
- * El nodo se declara ya para que, cuando llegue el sensor, solo haya que
- * cambiar CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR en corne_dongle.conf.
- * Mientras esa opcion este a n el driver no se compila y el nodo no hace nada.
+ * Lo lee src/display_als_backlight.c (CONFIG_DONGLE_ALS) a mano por I2C: el
+ * driver de Zephyr no se compila (no hay CONFIG_SENSOR) porque rechaza el ID
+ * del clon montado. Del nodo solo se usan el bus y la direccion; int-gpios se
+ * queda por si algun dia se vuelve al driver o al hilo del modulo.
  * ------------------------------------------------------------------------- */
 
 &spi0 {

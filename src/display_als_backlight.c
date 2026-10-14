@@ -14,14 +14,17 @@
  * se puede tocar desde fuera y mapea lecturas de 0 a 100, que con luz normal
  * de habitacion se saturan.
  *
- * La lectura cruda (canal "clear" del sensor) se pasa a brillo en escala
- * logaritmica entre CONFIG_DONGLE_ALS_MIN_READING y _MAX_READING: el ojo
- * percibe la luz asi, y entre una lampara y luz de dia hay un factor 10-100.
- * Para calibrar, CONFIG_DONGLE_ALS_SHOW_READING muestra la lectura y el brillo
- * en una esquina de la pantalla. "luz --" fijo significa que el sensor no
- * responde: el driver espera a la linea INT (D14) para cada lectura.
+ * Tampoco se usa el driver de Zephyr: solo acepta los ID 0xAB y 0x9C, y el
+ * modulo que hay montado es un clon que da otro (0x9E, leido en la pantalla).
+ * Para la luz ambiente bastan cuatro registros, asi que se leen a mano por
+ * I2C, sin la linea INT, y da igual el ID.
  *
- * Si el sensor no arranca, la pantalla se queda en
+ * La lectura cruda (canal "clear") se pasa a brillo en escala logaritmica
+ * entre CONFIG_DONGLE_ALS_MIN_READING y _MAX_READING: el ojo percibe la luz
+ * asi, y entre una lampara y luz de dia hay un factor 10-100. Para calibrar,
+ * CONFIG_DONGLE_ALS_SHOW_READING muestra la lectura y el brillo en una esquina.
+ *
+ * Si el sensor no responde, la pantalla se queda en
  * CONFIG_PROSPECTOR_FIXED_BRIGHTNESS (lo que pone el modulo al arrancar) y se
  * sigue apagando en reposo.
  */
@@ -30,10 +33,11 @@
 #include <stdlib.h>
 
 #include <zephyr/device.h>
+#include <zephyr/drivers/i2c.h>
 #include <zephyr/drivers/led.h>
-#include <zephyr/drivers/sensor.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/byteorder.h>
 #include <zephyr/sys/util.h>
 
 #include <zmk/event_manager.h>
@@ -41,7 +45,6 @@
 
 #if IS_ENABLED(CONFIG_DONGLE_ALS_SHOW_READING)
 #include <lvgl.h>
-#include <zephyr/drivers/i2c.h>
 #include <zmk/display.h>
 #endif
 
@@ -51,12 +54,29 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 #define FADE_STEP_MS 8
 /* Diferencia minima de brillo (%) para cambiarlo: evita que tiemble. */
 #define HYSTERESIS 2
+/* Lecturas seguidas sin dato valido antes de dar el sensor por perdido. */
+#define MAX_MISSES 10
+
+/* Registros del APDS9960 (datasheet, seccion "Register Set"). */
+#define REG_ENABLE 0x80
+#define ENABLE_PON BIT(0)
+#define ENABLE_AEN BIT(1)
+#define REG_ATIME 0x81
+/* 256 - 219 = 37 ciclos de 2,78 ms: ~103 ms por lectura, maximo 37.888. */
+#define ATIME_VALUE 219
+#define REG_CONTROL 0x8F
+/* AGAIN en los bits 1:0: 0 = 1x, 1 = 4x, 2 = 16x, 3 = 64x. */
+#define CONTROL_AGAIN_4X 0x01
+#define REG_ID 0x92
+#define REG_STATUS 0x93
+#define STATUS_AVALID BIT(0)
+#define REG_CDATAL 0x94
 
 /* Mismo dispositivo y canal que usa brightness.c del modulo. */
 static const struct device *pwm_leds_dev = DEVICE_DT_GET_ONE(pwm_leds);
 #define DISP_BL DT_NODE_CHILD_IDX(DT_NODELABEL(disp_bl))
 
-static const struct device *als_dev = DEVICE_DT_GET_ONE(avago_apds9960);
+static const struct i2c_dt_spec als_i2c = I2C_DT_SPEC_GET(DT_NODELABEL(apds9960));
 
 /* Protege active/target/current entre el listener y el hilo del sensor. */
 static K_MUTEX_DEFINE(bl_lock);
@@ -120,19 +140,11 @@ static uint8_t reading_to_brightness(int32_t reading) {
 
 #if IS_ENABLED(CONFIG_DONGLE_ALS_SHOW_READING)
 
-#define READING_NONE -1
-#define READING_ERROR -2
-
 static lv_obj_t *reading_label;
-static int32_t shown_reading = READING_NONE;
-static uint8_t shown_brightness;
-/* Detalle de READING_ERROR: que fallo al arrancar el sensor. */
-static char shown_error[16];
+static char shown_text[24] = "luz --";
 
 /* Corre en la cola de trabajo de la pantalla: es la unica que puede tocar LVGL. */
-static void show_reading_cb(struct k_work *work) {
-    char text[24];
-
+static void show_text_cb(struct k_work *work) {
     if (reading_label == NULL) {
         reading_label = lv_label_create(lv_layer_top());
         lv_obj_set_style_text_color(reading_label, lv_color_white(), 0);
@@ -141,57 +153,22 @@ static void show_reading_cb(struct k_work *work) {
         lv_obj_set_style_pad_all(reading_label, 2, 0);
         lv_obj_align(reading_label, LV_ALIGN_TOP_RIGHT, -4, 4);
     }
-
-    if (shown_reading == READING_ERROR) {
-        snprintf(text, sizeof(text), "luz ERR %s", shown_error);
-    } else if (shown_reading == READING_NONE) {
-        snprintf(text, sizeof(text), "luz --");
-    } else {
-        snprintf(text, sizeof(text), "luz %d  %d%%", shown_reading, shown_brightness);
-    }
-    lv_label_set_text(reading_label, text);
+    lv_label_set_text(reading_label, shown_text);
 }
 
-static K_WORK_DEFINE(show_reading_work, show_reading_cb);
+static K_WORK_DEFINE(show_text_work, show_text_cb);
 
-static void show_reading(int32_t reading, uint8_t brightness) {
-    shown_reading = reading;
-    shown_brightness = brightness;
-    if (zmk_display_is_initialized()) {
-        k_work_submit_to_queue(zmk_display_work_q(), &show_reading_work);
-    }
-}
-
-/*
- * El driver no dice por que no arranca y el dongle va sin logging. Lee a mano
- * el registro de ID: si contesta, el chip es otro (los clones baratos llevan
- * IDs que el driver no acepta, solo 0xAB y 0x9C); si no, busca cualquier cosa
- * en el bus por si esta en otra direccion. "i2c nada" = cableado/alimentacion.
- */
-static void show_init_error(void) {
-    const struct device *bus = DEVICE_DT_GET(DT_BUS(DT_NODELABEL(apds9960)));
-    uint8_t id;
-
-    if (i2c_reg_read_byte(bus, DT_REG_ADDR(DT_NODELABEL(apds9960)), 0x92, &id) == 0) {
-        snprintf(shown_error, sizeof(shown_error), "id %02X", id);
-    } else {
-        snprintf(shown_error, sizeof(shown_error), "i2c nada");
-        for (uint16_t addr = 0x08; addr < 0x78; addr++) {
-            if (i2c_reg_read_byte(bus, addr, 0, &id) == 0) {
-                snprintf(shown_error, sizeof(shown_error), "i2c %02X", addr);
-                break;
-            }
-        }
-    }
-
-    show_reading(READING_ERROR, 0);
-}
+#define show_text(...)                                                                             \
+    do {                                                                                           \
+        snprintf(shown_text, sizeof(shown_text), __VA_ARGS__);                                     \
+        if (zmk_display_is_initialized()) {                                                        \
+            k_work_submit_to_queue(zmk_display_work_q(), &show_text_work);                         \
+        }                                                                                          \
+    } while (0)
 
 #else
 
-#define READING_NONE 0
-static inline void show_reading(int32_t reading, uint8_t brightness) {}
-static inline void show_init_error(void) {}
+#define show_text(...)
 
 #endif
 
@@ -208,37 +185,74 @@ static void fade_to_target(void) {
     }
 }
 
+/* Enciende solo el ALS: sin proximidad, gestos ni interrupciones. */
+static int als_setup(uint8_t *id) {
+    if (!i2c_is_ready_dt(&als_i2c) || i2c_reg_read_byte_dt(&als_i2c, REG_ID, id)) {
+        return -EIO;
+    }
+    if (i2c_reg_write_byte_dt(&als_i2c, REG_ENABLE, 0) ||
+        i2c_reg_write_byte_dt(&als_i2c, REG_ATIME, ATIME_VALUE) ||
+        i2c_reg_write_byte_dt(&als_i2c, REG_CONTROL, CONTROL_AGAIN_4X) ||
+        i2c_reg_write_byte_dt(&als_i2c, REG_ENABLE, ENABLE_PON | ENABLE_AEN)) {
+        return -EIO;
+    }
+    return 0;
+}
+
+/* 1 = lectura nueva en *clear, 0 = aun no hay dato, < 0 = error de bus. */
+static int als_read(uint16_t *clear) {
+    uint8_t status;
+    uint8_t buf[2];
+
+    if (i2c_reg_read_byte_dt(&als_i2c, REG_STATUS, &status)) {
+        return -EIO;
+    }
+    if (!(status & STATUS_AVALID)) {
+        return 0;
+    }
+    if (i2c_burst_read_dt(&als_i2c, REG_CDATAL, buf, sizeof(buf))) {
+        return -EIO;
+    }
+    *clear = sys_get_le16(buf);
+    return 1;
+}
+
 static void als_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p1);
     ARG_UNUSED(p2);
     ARG_UNUSED(p3);
 
-    if (!device_is_ready(als_dev)) {
-        LOG_ERR("El sensor de luz APDS9960 no esta listo; brillo fijo");
-        show_init_error();
+    uint8_t id = 0;
+    if (als_setup(&id)) {
+        LOG_ERR("El sensor de luz no responde por I2C; brillo fijo");
+        show_text("luz ERR i2c");
         return;
     }
 
-    show_reading(READING_NONE, 0);
+    show_text("luz -- id %02X", id);
 
     /* Media movil del brillo, x16, para que un cambio de luz entre poco a poco. */
     int32_t avg16 = -1;
+    int misses = 0;
 
     for (;;) {
         k_msleep(SAMPLE_MS);
 
-        struct sensor_value light;
-        if (sensor_sample_fetch(als_dev) ||
-            sensor_channel_get(als_dev, SENSOR_CHAN_LIGHT, &light)) {
-            LOG_ERR("No se pudo leer el sensor de luz");
+        uint16_t clear;
+        int ret = als_read(&clear);
+        if (ret <= 0) {
+            if (++misses == MAX_MISSES) {
+                show_text("luz ERR %s id %02X", ret < 0 ? "i2c" : "sin dato", id);
+            }
             continue;
         }
+        misses = 0;
 
-        int32_t wanted16 = reading_to_brightness(light.val1) * 16;
+        int32_t wanted16 = reading_to_brightness(clear) * 16;
         avg16 = avg16 < 0 ? wanted16 : avg16 + (wanted16 - avg16) / 4;
         uint8_t wanted = (avg16 + 8) / 16;
 
-        show_reading(light.val1, wanted);
+        show_text("luz %d  %d%%", clear, wanted);
 
         k_mutex_lock(&bl_lock, K_FOREVER);
         if (abs(wanted - target) >= HYSTERESIS || wanted == CONFIG_DONGLE_ALS_MIN_BRIGHTNESS ||

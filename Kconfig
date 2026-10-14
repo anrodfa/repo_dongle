@@ -6,12 +6,14 @@ config ZMK_BEHAVIOR_PMW_CPI
 # --- Pantalla del dongle: brillo segun el sensor de luz APDS9960 -------------
 # Sustituye al hilo del sensor del modulo Prospector (que se deja con
 # PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR=n): ese no apaga la pantalla en reposo y
-# espera lecturas de 0 a 100. Ver src/display_als_backlight.c.
+# espera lecturas de 0 a 100. Tampoco se usa el driver de Zephyr (rechaza el
+# ID del clon montado): el sensor se lee a mano por I2C. Ver
+# src/display_als_backlight.c.
 
 config DONGLE_ALS
     bool "Brillo de la pantalla del dongle segun el sensor de luz APDS9960"
     depends on SHIELD_PROSPECTOR_ADAPTER && !PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
-    select SENSOR
+    select I2C
 
 if DONGLE_ALS
 
