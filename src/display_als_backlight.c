@@ -141,7 +141,7 @@ static uint8_t reading_to_brightness(int32_t reading) {
 #if IS_ENABLED(CONFIG_DONGLE_ALS_SHOW_READING)
 
 static lv_obj_t *reading_label;
-static char shown_text[24] = "luz --";
+static char shown_text[160] = "luz --";
 
 /* Corre en la cola de trabajo de la pantalla: es la unica que puede tocar LVGL. */
 static void show_text_cb(struct k_work *work) {
@@ -151,7 +151,9 @@ static void show_text_cb(struct k_work *work) {
         lv_obj_set_style_bg_color(reading_label, lv_color_black(), 0);
         lv_obj_set_style_bg_opa(reading_label, LV_OPA_COVER, 0);
         lv_obj_set_style_pad_all(reading_label, 2, 0);
-        lv_obj_align(reading_label, LV_ALIGN_TOP_RIGHT, -4, 4);
+        lv_obj_set_style_text_align(reading_label, LV_TEXT_ALIGN_CENTER, 0);
+        /* Centrada: la pantalla es curva y por los lados se corta. */
+        lv_obj_align(reading_label, LV_ALIGN_TOP_MID, 0, 4);
     }
     lv_label_set_text(reading_label, shown_text);
 }
@@ -218,20 +220,41 @@ static int als_read(uint16_t *clear) {
 }
 
 /*
- * Diagnostico temporal para el clon (ID 0x9E): nunca marca AVALID. Muestra lo
- * que devuelven ENABLE, ATIME y STATUS y el canal clear leido igualmente, para
- * ver si la configuracion se queda y si el dato cambia con la luz.
+ * Diagnostico temporal para el clon (ID 0x9E): las escrituras no dan error
+ * pero ENABLE y ATIME se leen con los valores de reset. Muestra, en lineas
+ * cortas y centradas (la pantalla es curva):
+ *   id, resultado de escribir ATIME (w) y lo que se lee despues (r)
+ *   direcciones que contestan en el bus
+ *   registros 0x80-0x97 leidos de uno en uno, 4 por linea
  */
 static void show_diag(uint8_t id) {
-    uint8_t enable = 0, atime = 0, status = 0;
-    uint8_t buf[2] = {0};
+    char text[160];
+    int len = 0;
+    uint8_t v = 0;
 
-    i2c_reg_read_byte_dt(&als_i2c, REG_ENABLE, &enable);
-    i2c_reg_read_byte_dt(&als_i2c, REG_ATIME, &atime);
-    i2c_reg_read_byte_dt(&als_i2c, REG_STATUS, &status);
-    i2c_burst_read_dt(&als_i2c, REG_CDATAL, buf, sizeof(buf));
+    int w = i2c_reg_write_byte_dt(&als_i2c, REG_ATIME, ATIME_VALUE);
+    int r = i2c_reg_read_byte_dt(&als_i2c, REG_ATIME, &v);
+    len += snprintf(text + len, sizeof(text) - len, "id%02X w%d r%d=%02X\ni2c", id, w, r, v);
 
-    show_text("%02X e%02X a%02X s%02X c%u", id, enable, atime, status, sys_get_le16(buf));
+    int found = 0;
+    for (uint16_t addr = 0x08; addr < 0x78 && found < 4; addr++) {
+        if (i2c_reg_read_byte(als_i2c.bus, addr, 0x92, &v) == 0) {
+            len += snprintf(text + len, sizeof(text) - len, " %02X", addr);
+            found++;
+        }
+    }
+
+    for (uint8_t reg = 0x80; reg < 0x98; reg++) {
+        if (i2c_reg_read_byte_dt(&als_i2c, reg, &v)) {
+            v = 0xEE;
+        }
+        if ((reg & 3) == 0) {
+            len += snprintf(text + len, sizeof(text) - len, "\n%02X:", reg);
+        }
+        len += snprintf(text + len, sizeof(text) - len, "%02X", v);
+    }
+
+    show_text("%s", text);
 }
 
 static void als_thread(void *p1, void *p2, void *p3) {
@@ -261,7 +284,7 @@ static void als_thread(void *p1, void *p2, void *p3) {
             if (++misses >= MAX_MISSES) {
                 if (ret < 0) {
                     show_text("luz ERR i2c id %02X", id);
-                } else {
+                } else if (misses == MAX_MISSES) {
                     show_diag(id);
                 }
             }
