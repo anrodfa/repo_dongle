@@ -187,11 +187,16 @@ static void fade_to_target(void) {
     }
 }
 
-/* Enciende solo el ALS: sin proximidad, gestos ni interrupciones. */
-static int als_setup(uint8_t *id) {
-    if (!i2c_is_ready_dt(&als_i2c) || i2c_reg_read_byte_dt(&als_i2c, REG_ID, id)) {
-        return -EIO;
-    }
+/*
+ * Enciende solo el ALS: sin proximidad, gestos ni interrupciones.
+ *
+ * El clon montado pierde esta configuracion poco despues de arrancar (volcado
+ * de registros: ENABLE, ATIME y CONTROL de vuelta a los valores de reset,
+ * mientras que lo escrito dos segundos mas tarde se queda). No se sabe quien lo
+ * resetea, asi que als_read() comprueba ENABLE en cada lectura y lo vuelve a
+ * configurar si hace falta.
+ */
+static int als_configure(void) {
     if (i2c_reg_write_byte_dt(&als_i2c, REG_ENABLE, 0) ||
         i2c_reg_write_byte_dt(&als_i2c, REG_ATIME, ATIME_VALUE) ||
         i2c_reg_write_byte_dt(&als_i2c, REG_CONTROL, CONTROL_AGAIN_4X) ||
@@ -201,10 +206,22 @@ static int als_setup(uint8_t *id) {
     return 0;
 }
 
+/* Veces que se ha tenido que volver a configurar el sensor. */
+static int reconfigs;
+
 /* 1 = lectura nueva en *clear, 0 = aun no hay dato, < 0 = error de bus. */
 static int als_read(uint16_t *clear) {
+    uint8_t enable;
     uint8_t status;
     uint8_t buf[2];
+
+    if (i2c_reg_read_byte_dt(&als_i2c, REG_ENABLE, &enable)) {
+        return -EIO;
+    }
+    if ((enable & (ENABLE_PON | ENABLE_AEN)) != (ENABLE_PON | ENABLE_AEN)) {
+        reconfigs++;
+        return als_configure() ? -EIO : 0;
+    }
 
     if (i2c_reg_read_byte_dt(&als_i2c, REG_STATUS, &status)) {
         return -EIO;
@@ -263,7 +280,8 @@ static void als_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p3);
 
     uint8_t id = 0;
-    if (als_setup(&id)) {
+    if (!i2c_is_ready_dt(&als_i2c) || i2c_reg_read_byte_dt(&als_i2c, REG_ID, &id) ||
+        als_configure()) {
         LOG_ERR("El sensor de luz no responde por I2C; brillo fijo");
         show_text("luz ERR i2c");
         return;
@@ -296,7 +314,7 @@ static void als_thread(void *p1, void *p2, void *p3) {
         avg16 = avg16 < 0 ? wanted16 : avg16 + (wanted16 - avg16) / 4;
         uint8_t wanted = (avg16 + 8) / 16;
 
-        show_text("luz %d  %d%%", clear, wanted);
+        show_text("luz %d  %d%%  r%d", clear, wanted, reconfigs);
 
         k_mutex_lock(&bl_lock, K_FOREVER);
         if (abs(wanted - target) >= HYSTERESIS || wanted == CONFIG_DONGLE_ALS_MIN_BRIGHTNESS ||
