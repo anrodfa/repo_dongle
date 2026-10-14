@@ -217,6 +217,23 @@ static int als_read(uint16_t *clear) {
     return 1;
 }
 
+/*
+ * Diagnostico temporal para el clon (ID 0x9E): nunca marca AVALID. Muestra lo
+ * que devuelven ENABLE, ATIME y STATUS y el canal clear leido igualmente, para
+ * ver si la configuracion se queda y si el dato cambia con la luz.
+ */
+static void show_diag(uint8_t id) {
+    uint8_t enable = 0, atime = 0, status = 0;
+    uint8_t buf[2] = {0};
+
+    i2c_reg_read_byte_dt(&als_i2c, REG_ENABLE, &enable);
+    i2c_reg_read_byte_dt(&als_i2c, REG_ATIME, &atime);
+    i2c_reg_read_byte_dt(&als_i2c, REG_STATUS, &status);
+    i2c_burst_read_dt(&als_i2c, REG_CDATAL, buf, sizeof(buf));
+
+    show_text("%02X e%02X a%02X s%02X c%u", id, enable, atime, status, sys_get_le16(buf));
+}
+
 static void als_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p1);
     ARG_UNUSED(p2);
@@ -241,8 +258,12 @@ static void als_thread(void *p1, void *p2, void *p3) {
         uint16_t clear;
         int ret = als_read(&clear);
         if (ret <= 0) {
-            if (++misses == MAX_MISSES) {
-                show_text("luz ERR %s id %02X", ret < 0 ? "i2c" : "sin dato", id);
+            if (++misses >= MAX_MISSES) {
+                if (ret < 0) {
+                    show_text("luz ERR i2c id %02X", id);
+                } else {
+                    show_diag(id);
+                }
             }
             continue;
         }
