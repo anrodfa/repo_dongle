@@ -41,6 +41,7 @@
 
 #if IS_ENABLED(CONFIG_DONGLE_ALS_SHOW_READING)
 #include <lvgl.h>
+#include <zephyr/drivers/i2c.h>
 #include <zmk/display.h>
 #endif
 
@@ -125,6 +126,8 @@ static uint8_t reading_to_brightness(int32_t reading) {
 static lv_obj_t *reading_label;
 static int32_t shown_reading = READING_NONE;
 static uint8_t shown_brightness;
+/* Detalle de READING_ERROR: que fallo al arrancar el sensor. */
+static char shown_error[16];
 
 /* Corre en la cola de trabajo de la pantalla: es la unica que puede tocar LVGL. */
 static void show_reading_cb(struct k_work *work) {
@@ -140,7 +143,7 @@ static void show_reading_cb(struct k_work *work) {
     }
 
     if (shown_reading == READING_ERROR) {
-        snprintf(text, sizeof(text), "luz ERR");
+        snprintf(text, sizeof(text), "luz ERR %s", shown_error);
     } else if (shown_reading == READING_NONE) {
         snprintf(text, sizeof(text), "luz --");
     } else {
@@ -159,11 +162,36 @@ static void show_reading(int32_t reading, uint8_t brightness) {
     }
 }
 
+/*
+ * El driver no dice por que no arranca y el dongle va sin logging. Lee a mano
+ * el registro de ID: si contesta, el chip es otro (los clones baratos llevan
+ * IDs que el driver no acepta, solo 0xAB y 0x9C); si no, busca cualquier cosa
+ * en el bus por si esta en otra direccion. "i2c nada" = cableado/alimentacion.
+ */
+static void show_init_error(void) {
+    const struct device *bus = DEVICE_DT_GET(DT_BUS(DT_NODELABEL(apds9960)));
+    uint8_t id;
+
+    if (i2c_reg_read_byte(bus, DT_REG_ADDR(DT_NODELABEL(apds9960)), 0x92, &id) == 0) {
+        snprintf(shown_error, sizeof(shown_error), "id %02X", id);
+    } else {
+        snprintf(shown_error, sizeof(shown_error), "i2c nada");
+        for (uint16_t addr = 0x08; addr < 0x78; addr++) {
+            if (i2c_reg_read_byte(bus, addr, 0, &id) == 0) {
+                snprintf(shown_error, sizeof(shown_error), "i2c %02X", addr);
+                break;
+            }
+        }
+    }
+
+    show_reading(READING_ERROR, 0);
+}
+
 #else
 
 #define READING_NONE 0
-#define READING_ERROR 0
 static inline void show_reading(int32_t reading, uint8_t brightness) {}
+static inline void show_init_error(void) {}
 
 #endif
 
@@ -187,7 +215,7 @@ static void als_thread(void *p1, void *p2, void *p3) {
 
     if (!device_is_ready(als_dev)) {
         LOG_ERR("El sensor de luz APDS9960 no esta listo; brillo fijo");
-        show_reading(READING_ERROR, 0);
+        show_init_error();
         return;
     }
 
