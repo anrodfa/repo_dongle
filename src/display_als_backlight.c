@@ -190,11 +190,10 @@ static void fade_to_target(void) {
 /*
  * Enciende solo el ALS: sin proximidad, gestos ni interrupciones.
  *
- * El clon montado pierde esta configuracion poco despues de arrancar (volcado
- * de registros: ENABLE, ATIME y CONTROL de vuelta a los valores de reset,
- * mientras que lo escrito dos segundos mas tarde se queda). No se sabe quien lo
- * resetea, asi que als_read() comprueba ENABLE en cada lectura y lo vuelve a
- * configurar si hace falta.
+ * Con el VCC del sensor mal soldado, el chip se reseteaba al encenderlo y
+ * perdia esta configuracion. Ya esta arreglado (la r de la calibracion se quedo
+ * en 0 todo el dia), pero als_read() sigue comprobando ENABLE en cada lectura y
+ * lo vuelve a configurar si hace falta: cuesta un byte de I2C.
  */
 static int als_configure(void) {
     if (i2c_reg_write_byte_dt(&als_i2c, REG_ENABLE, 0) ||
@@ -236,44 +235,6 @@ static int als_read(uint16_t *clear) {
     return 1;
 }
 
-/*
- * Diagnostico temporal para el clon (ID 0x9E): las escrituras no dan error
- * pero ENABLE y ATIME se leen con los valores de reset. Muestra, en lineas
- * cortas y centradas (la pantalla es curva):
- *   id, resultado de escribir ATIME (w) y lo que se lee despues (r)
- *   direcciones que contestan en el bus
- *   registros 0x80-0x97 leidos de uno en uno, 4 por linea
- */
-static void show_diag(uint8_t id) {
-    char text[160];
-    int len = 0;
-    uint8_t v = 0;
-
-    int w = i2c_reg_write_byte_dt(&als_i2c, REG_ATIME, ATIME_VALUE);
-    int r = i2c_reg_read_byte_dt(&als_i2c, REG_ATIME, &v);
-    len += snprintf(text + len, sizeof(text) - len, "id%02X w%d r%d=%02X\ni2c", id, w, r, v);
-
-    int found = 0;
-    for (uint16_t addr = 0x08; addr < 0x78 && found < 4; addr++) {
-        if (i2c_reg_read_byte(als_i2c.bus, addr, 0x92, &v) == 0) {
-            len += snprintf(text + len, sizeof(text) - len, " %02X", addr);
-            found++;
-        }
-    }
-
-    for (uint8_t reg = 0x80; reg < 0x98; reg++) {
-        if (i2c_reg_read_byte_dt(&als_i2c, reg, &v)) {
-            v = 0xEE;
-        }
-        if ((reg & 3) == 0) {
-            len += snprintf(text + len, sizeof(text) - len, "\n%02X:", reg);
-        }
-        len += snprintf(text + len, sizeof(text) - len, "%02X", v);
-    }
-
-    show_text("%s", text);
-}
-
 static void als_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p1);
     ARG_UNUSED(p2);
@@ -299,12 +260,8 @@ static void als_thread(void *p1, void *p2, void *p3) {
         uint16_t clear;
         int ret = als_read(&clear);
         if (ret <= 0) {
-            if (++misses >= MAX_MISSES) {
-                if (ret < 0) {
-                    show_text("luz ERR i2c id %02X", id);
-                } else if (misses == MAX_MISSES) {
-                    show_diag(id);
-                }
+            if (++misses >= MAX_MISSES && ret < 0) {
+                show_text("luz ERR i2c id %02X", id);
             }
             continue;
         }
