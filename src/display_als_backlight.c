@@ -7,7 +7,9 @@
 /*
  * Brillo de la pantalla Prospector del dongle segun el sensor de luz APDS9960,
  * y backlight a 0 cuando ZMK pasa a inactivo (como display_idle_backlight.c,
- * que es la version de brillo fijo y no se compila a la vez que esta).
+ * que es la version de brillo fijo y no se compila a la vez que esta). Con el
+ * reloj (CONFIG_DONGLE_RTC) no se apaga: en reposo la pantalla pasa a modo
+ * reloj (src/dongle_rtc.c) y sigue con el brillo del sensor.
  *
  * No se usa el hilo del sensor del modulo (PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
  * se queda a n): no sabe nada de IDLE, guarda el brillo en una static que no
@@ -296,7 +298,7 @@ static int display_als_activity_listener(const zmk_event_t *eh) {
 
     /* Al volver se enciende de golpe al brillo que toca, sin fundido. */
     k_mutex_lock(&bl_lock, K_FOREVER);
-    active = ev->state == ZMK_ACTIVITY_ACTIVE;
+    active = ev->state == ZMK_ACTIVITY_ACTIVE || IS_ENABLED(CONFIG_DONGLE_RTC);
     set_backlight(active ? target : 0);
     k_mutex_unlock(&bl_lock);
 

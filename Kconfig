@@ -48,6 +48,14 @@ config DONGLE_RTC
     depends on SHIELD_PROSPECTOR_ADAPTER
     select I2C
 
-config DONGLE_RTC_SHOW_RAW
-    bool "Mostrar los registros del DS3231 en crudo arriba (prueba del cableado)"
-    depends on DONGLE_RTC
+if DONGLE_RTC
+
+config DONGLE_RTC_UTC_OFFSET_MIN
+    int "Diferencia con UTC en invierno, en minutos"
+    default 60
+
+config DONGLE_RTC_EU_DST
+    bool "Horario de verano de la UE (ultimo domingo de marzo a ultimo de octubre)"
+    default y
+
+endif

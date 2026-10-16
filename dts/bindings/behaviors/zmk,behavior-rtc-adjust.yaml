@@ -1,0 +1,5 @@
+description: Ajuste a mano del reloj DS3231 del dongle
+
+compatible: "zmk,behavior-rtc-adjust"
+
+include: one_param.yaml

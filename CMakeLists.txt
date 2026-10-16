@@ -7,9 +7,12 @@ target_sources_ifdef(CONFIG_ZMK_BEHAVIOR_PMW_CPI app PRIVATE src/behaviors/behav
 # compila ninguno: su hilo pisaria el valor (ver el comentario de los ficheros).
 if(CONFIG_DONGLE_ALS)
   target_sources(app PRIVATE src/display_als_backlight.c)
-elseif(CONFIG_SHIELD_PROSPECTOR_ADAPTER AND NOT CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR)
+elseif(CONFIG_SHIELD_PROSPECTOR_ADAPTER AND NOT CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
+       AND NOT CONFIG_DONGLE_RTC)
   target_sources(app PRIVATE src/display_idle_backlight.c)
 endif()
 
-# Reloj DS3231 del dongle. De momento solo la prueba del cableado.
-target_sources_ifdef(CONFIG_DONGLE_RTC_SHOW_RAW app PRIVATE src/dongle_rtc.c)
+# Reloj DS3231 del dongle y &rtc_adj para ponerlo en hora. Con el reloj, la
+# pantalla no se apaga en reposo (pasa a modo reloj), asi que sin sensor de luz
+# no hace falta display_idle_backlight.c.
+target_sources_ifdef(CONFIG_DONGLE_RTC app PRIVATE src/dongle_rtc.c src/behaviors/behavior_rtc_adjust.c)
