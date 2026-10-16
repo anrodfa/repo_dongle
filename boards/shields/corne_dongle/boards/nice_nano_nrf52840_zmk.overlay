@@ -1,12 +1,11 @@
 /*
- * Hardware del dongle sobre la nice!nano: la tira WS2812 "fantasma" y la
- * pantalla Prospector (ST7789V2 240x280) con su sensor de luz APDS9960.
+ * Hardware del dongle sobre la nice!nano: la pantalla Prospector (ST7789V2
+ * 240x280) con su sensor de luz APDS9960.
  *
  * Reparto de buses. En el nRF52840 spi0<->i2c0 y spi1<->i2c1 comparten
  * instancia, y spi3 es el unico SPIM que llega a 32 MHz:
  *   - pantalla  -> spi3
  *   - APDS9960  -> i2c0 (pinctrl por defecto de la placa: SDA D2, SCL D3)
- *   - tira      -> spi1
  *
  * Cableado (los numeros D son los de la serigrafia pro micro):
  *
@@ -31,79 +30,6 @@
  * nombres no se pueden cambiar. Esto es la adaptacion del xiao_ble_zmk.overlay
  * del modulo (rama feat/new-status-screens) a los pines de la nice!nano.
  */
-
-#include <dt-bindings/led/led.h>
-
-/* ---------------------------------------------------------------------------
- * Tira WS2812 "fantasma"
- *
- * El dongle no lleva ningun LED, pero necesita este nodo por dos motivos:
- *
- * 1. corne.keymap hace `&led_strip { chain-length = <27>; }` en su linea 16, y
- *    ese fichero lo compilan las tres piezas. Sin un nodo con label led_strip
- *    el devicetree ni siquiera parsea:
- *      parse error: undefined node label 'led_strip'
- *
- * 2. El keymap usa &rgb_ug, que exige CONFIG_ZMK_RGB_UNDERGLOW=y, que a su vez
- *    exige un `chosen { zmk,underglow }`. El behavior tiene locality GLOBAL: se
- *    ejecuta en la central y se reenvia a las dos mitades, que son las que
- *    tienen LEDs de verdad. Aqui solo hace falta que exista.
- *
- * Los parametros WS2812 son copia del shield corne oficial. Antes vivia en
- * spi3, pero spi3 es para la pantalla. Va en spi1 con un pinctrl propio: el
- * spi1_default de la placa pone MISO en P1.11 (D14), que es el INT del sensor,
- * y MOSI en P0.10, que es pin NFC. Aqui solo MOSI, en P0.06 (D1), el mismo pin
- * de antes, sin cable.
- * ------------------------------------------------------------------------- */
-
-&pinctrl {
-    ws2812_spi1_default: ws2812_spi1_default {
-        group1 {
-            psels = <NRF_PSEL(SPIM_MOSI, 0, 6)>;
-        };
-    };
-
-    ws2812_spi1_sleep: ws2812_spi1_sleep {
-        group1 {
-            psels = <NRF_PSEL(SPIM_MOSI, 0, 6)>;
-            low-power-enable;
-        };
-    };
-};
-
-&i2c1 {
-    status = "disabled";
-};
-
-&spi1 {
-    compatible = "nordic,nrf-spim";
-    status = "okay";
-
-    pinctrl-0 = <&ws2812_spi1_default>;
-    pinctrl-1 = <&ws2812_spi1_sleep>;
-    pinctrl-names = "default", "sleep";
-
-    led_strip: ws2812@0 {
-        compatible = "worldsemi,ws2812-spi";
-
-        /* SPI */
-        reg = <0>; /* ignored, but necessary for SPI bindings */
-        spi-max-frequency = <4000000>;
-
-        /* WS2812. corne.keymap lo sube a 27 de todas formas. */
-        chain-length = <10>;
-        spi-one-frame = <0x70>;
-        spi-zero-frame = <0x40>;
-
-        color-mapping = <LED_COLOR_ID_GREEN LED_COLOR_ID_RED LED_COLOR_ID_BLUE>;
-    };
-};
-
-/ {
-    chosen {
-        zmk,underglow = &led_strip;
-    };
-};
 
 /* ---------------------------------------------------------------------------
  * Pantalla ST7789V2 240x280

@@ -42,16 +42,15 @@ Los cuatro `.uf2` salen del mismo run de GitHub Actions.
 el teclado escribe correctamente.
 
 Pendiente de confirmar: el trackball (movimiento, scroll en la capa 5 y el
-cambio de CPI con `&pmwcpi`) y que `&rgb_ug` llegue a las dos mitades desde el
-dongle.
+cambio de CPI con `&pmwcpi`).
 
 ### Dos fallos que costaron encontrar
 
 1. **`undefined node label 'led_strip'`** al compilar. `led_strip` no lo define
    la placa nice!nano sino cada shield, en `boards/<placa>.overlay`. El shield
    del dongle no lo tenia y `corne.keymap:16` hace `&led_strip { ... }`, que
-   compilan las tres piezas. Ver
-   `boards/shields/corne_dongle/boards/nice_nano_nrf52840_zmk.overlay`.
+   compilan las tres piezas. (Historico: desde que se desoldaron los LEDs ya no
+   hay underglow ni `&led_strip` en el keymap.)
 
 2. **Teclas corridas un lugar** (la Q daba ESC, la Y daba T). El shield del
    dongle declaraba solo `foostan_corne_6col_layout`, y las mitades declaran los
