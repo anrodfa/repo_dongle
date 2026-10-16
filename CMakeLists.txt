@@ -10,3 +10,6 @@ if(CONFIG_DONGLE_ALS)
 elseif(CONFIG_SHIELD_PROSPECTOR_ADAPTER AND NOT CONFIG_PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR)
   target_sources(app PRIVATE src/display_idle_backlight.c)
 endif()
+
+# Reloj DS3231 del dongle. De momento solo la prueba del cableado.
+target_sources_ifdef(CONFIG_DONGLE_RTC_SHOW_RAW app PRIVATE src/dongle_rtc.c)

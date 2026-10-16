@@ -39,3 +39,15 @@ config DONGLE_ALS_SHOW_READING
     bool "Mostrar la lectura del sensor y el brillo en una esquina (calibracion)"
 
 endif
+
+# --- Reloj del dongle: modulo DS3231 en i2c0 -----------------------------------
+# Se lee a mano por I2C, sin el driver de Zephyr. Ver src/dongle_rtc.c.
+
+config DONGLE_RTC
+    bool "Reloj DS3231 en la pantalla del dongle"
+    depends on SHIELD_PROSPECTOR_ADAPTER
+    select I2C
+
+config DONGLE_RTC_SHOW_RAW
+    bool "Mostrar los registros del DS3231 en crudo arriba (prueba del cableado)"
+    depends on DONGLE_RTC
