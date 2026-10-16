@@ -141,8 +141,7 @@ static int64_t utc_to_local(int64_t utc) {
  * DS3231
  * ------------------------------------------------------------------------- */
 
-static int bcd2bin(uint8_t v) { return (v >> 4) * 10 + (v & 0x0F); }
-static uint8_t bin2bcd(int v) { return ((v / 10) << 4) | (v % 10); }
+/* bcd2bin() y bin2bcd() vienen de zephyr/sys/util.h. */
 
 /* Llamar con rtc_lock cogido. */
 static int rtc_read(int64_t *utc) {
