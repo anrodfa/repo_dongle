@@ -17,3 +17,4 @@ endif()
 # no hace falta display_idle_backlight.c.
 target_sources_ifdef(CONFIG_DONGLE_RTC app PRIVATE src/dongle_rtc.c src/behaviors/behavior_rtc_adjust.c
                      src/fonts/Clock_Time_64.c src/fonts/Clock_Date_30.c)
+target_sources_ifdef(CONFIG_DONGLE_TOUCH app PRIVATE src/dongle_touch.c)

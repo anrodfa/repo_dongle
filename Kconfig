@@ -67,3 +67,12 @@ config DONGLE_RTC_EU_DST
     default y
 
 endif
+
+# --- Tactil de la pantalla del dongle (CST816T) --------------------------------
+# Un toque apaga/enciende la pantalla; dos toques despiertan el PC. Ver
+# src/dongle_touch.c. Usa dongle_backlight_toggle() de display_als_backlight.c.
+
+config DONGLE_TOUCH
+    bool "Tactil de la pantalla del dongle"
+    depends on DONGLE_ALS && DT_HAS_HYNITRON_CST816S_ENABLED
+    select INPUT

@@ -13,6 +13,10 @@
  * (lectura <= CONFIG_DONGLE_ALS_OFF_READING), que se apaga del todo. Con
  * actividad se enciende siempre, aunque este oscuro.
  *
+ * El tactil (src/dongle_touch.c) apaga y enciende la pantalla con un toque:
+ * dongle_backlight_toggle(). Apagada asi, se queda a 0 pase lo que pase hasta
+ * el siguiente toque.
+ *
  * No se usa el hilo del sensor del modulo (PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
  * se queda a n): no sabe nada de IDLE, guarda el brillo en una static que no
  * se puede tocar desde fuera y mapea lecturas de 0 a 100, que con luz normal
@@ -87,6 +91,8 @@ static K_MUTEX_DEFINE(bl_lock);
 static bool idle;
 /* Habitacion a oscuras (con histeresis); solo cuenta en modo reloj. */
 static bool dark;
+/* Apagada con un toque en la pantalla. */
+static bool forced_off;
 /* Brillo que toca segun la luz; se aplica cuando la pantalla esta encendida. */
 static uint8_t target = CONFIG_PROSPECTOR_FIXED_BRIGHTNESS;
 /* Brillo puesto ahora mismo. El modulo pone FIXED_BRIGHTNESS al arrancar. */
@@ -106,6 +112,9 @@ static void set_backlight(uint8_t brightness) {
 
 /* Llamar con bl_lock cogido. Brillo que deberia tener la pantalla ahora. */
 static uint8_t wanted_backlight(void) {
+    if (forced_off) {
+        return 0;
+    }
     if (idle && (!IS_ENABLED(CONFIG_DONGLE_RTC) || dark)) {
         return 0;
     }
@@ -322,6 +331,13 @@ static int display_als_activity_listener(const zmk_event_t *eh) {
     k_mutex_unlock(&bl_lock);
 
     return ZMK_EV_EVENT_BUBBLE;
+}
+
+void dongle_backlight_toggle(void) {
+    k_mutex_lock(&bl_lock, K_FOREVER);
+    forced_off = !forced_off;
+    set_backlight(wanted_backlight());
+    k_mutex_unlock(&bl_lock);
 }
 
 ZMK_LISTENER(display_als_backlight, display_als_activity_listener);

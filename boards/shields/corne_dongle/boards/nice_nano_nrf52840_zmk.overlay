@@ -22,6 +22,14 @@
  *   SCL        D3          P0.20
  *   INT        D14         P1.11
  *
+ *   Tactil CST816T (pines TP_* de la pantalla), mismo bus i2c0, 0x15:
+ *   TP_SDA     D2          P0.17
+ *   TP_SCL     D3          P0.20
+ *   TP_IRQ     D15         P1.13
+ *   TP_RST     D18         P1.15
+ *
+ *   Reloj DS3231 (0x68) tambien en i2c0, D2/D3. No tiene nodo: se lee a mano.
+ *
  * El ST7789 es solo escritura: no hay MISO.
  *
  * El shield prospector_adapter va DETRAS de corne_dongle en build.yaml. Su
@@ -155,5 +163,14 @@
         status = "okay";
         reg = <0x39>;
         int-gpios = <&pro_micro 14 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+    };
+
+    /* Driver de Zephyr hynitron,cst816s; lo usa src/dongle_touch.c. */
+    touch: cst816s@15 {
+        compatible = "hynitron,cst816s";
+        status = "okay";
+        reg = <0x15>;
+        irq-gpios = <&pro_micro 15 (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+        rst-gpios = <&pro_micro 18 GPIO_ACTIVE_LOW>;
     };
 };
