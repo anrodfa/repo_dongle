@@ -9,7 +9,9 @@
  * y backlight a 0 cuando ZMK pasa a inactivo (como display_idle_backlight.c,
  * que es la version de brillo fijo y no se compila a la vez que esta). Con el
  * reloj (CONFIG_DONGLE_RTC) no se apaga: en reposo la pantalla pasa a modo
- * reloj (src/dongle_rtc.c) y sigue con el brillo del sensor.
+ * reloj (src/dongle_rtc.c) y sigue con el brillo del sensor, salvo a oscuras
+ * (lectura <= CONFIG_DONGLE_ALS_OFF_READING), que se apaga del todo. Con
+ * actividad se enciende siempre, aunque este oscuro.
  *
  * No se usa el hilo del sensor del modulo (PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
  * se queda a n): no sabe nada de IDLE, guarda el brillo en una static que no
@@ -80,10 +82,12 @@ static const struct device *pwm_leds_dev = DEVICE_DT_GET_ONE(pwm_leds);
 
 static const struct i2c_dt_spec als_i2c = I2C_DT_SPEC_GET(DT_NODELABEL(apds9960));
 
-/* Protege active/target/current entre el listener y el hilo del sensor. */
+/* Protege idle/dark/target/current entre el listener y el hilo del sensor. */
 static K_MUTEX_DEFINE(bl_lock);
-static bool active = true;
-/* Brillo que toca segun la luz; se aplica cuando ZMK esta activo. */
+static bool idle;
+/* Habitacion a oscuras (con histeresis); solo cuenta en modo reloj. */
+static bool dark;
+/* Brillo que toca segun la luz; se aplica cuando la pantalla esta encendida. */
 static uint8_t target = CONFIG_PROSPECTOR_FIXED_BRIGHTNESS;
 /* Brillo puesto ahora mismo. El modulo pone FIXED_BRIGHTNESS al arrancar. */
 static uint8_t current = CONFIG_PROSPECTOR_FIXED_BRIGHTNESS;
@@ -98,6 +102,14 @@ static void set_backlight(uint8_t brightness) {
         return;
     }
     current = brightness;
+}
+
+/* Llamar con bl_lock cogido. Brillo que deberia tener la pantalla ahora. */
+static uint8_t wanted_backlight(void) {
+    if (idle && (!IS_ENABLED(CONFIG_DONGLE_RTC) || dark)) {
+        return 0;
+    }
+    return target;
 }
 
 /* log2(x) con 4 bits de fraccion (x >= 1). */
@@ -179,11 +191,12 @@ static K_WORK_DEFINE(show_text_work, show_text_cb);
 static void fade_to_target(void) {
     for (;;) {
         k_mutex_lock(&bl_lock, K_FOREVER);
-        if (!active || current == target) {
+        uint8_t wanted = wanted_backlight();
+        if (current == wanted) {
             k_mutex_unlock(&bl_lock);
             return;
         }
-        set_backlight(current < target ? current + 1 : current - 1);
+        set_backlight(current < wanted ? current + 1 : current - 1);
         k_mutex_unlock(&bl_lock);
         k_msleep(FADE_STEP_MS);
     }
@@ -276,6 +289,12 @@ static void als_thread(void *p1, void *p2, void *p3) {
         show_text("luz %d  %d%%  r%d", clear, wanted, reconfigs);
 
         k_mutex_lock(&bl_lock, K_FOREVER);
+        /* Dos puntos de histeresis para que no parpadee en el limite. */
+        if (clear <= CONFIG_DONGLE_ALS_OFF_READING) {
+            dark = true;
+        } else if (clear >= CONFIG_DONGLE_ALS_OFF_READING + 2) {
+            dark = false;
+        }
         if (abs(wanted - target) >= HYSTERESIS || wanted == CONFIG_DONGLE_ALS_MIN_BRIGHTNESS ||
             wanted == CONFIG_DONGLE_ALS_MAX_BRIGHTNESS) {
             target = wanted;
@@ -298,8 +317,8 @@ static int display_als_activity_listener(const zmk_event_t *eh) {
 
     /* Al volver se enciende de golpe al brillo que toca, sin fundido. */
     k_mutex_lock(&bl_lock, K_FOREVER);
-    active = ev->state == ZMK_ACTIVITY_ACTIVE || IS_ENABLED(CONFIG_DONGLE_RTC);
-    set_backlight(active ? target : 0);
+    idle = ev->state != ZMK_ACTIVITY_ACTIVE;
+    set_backlight(wanted_backlight());
     k_mutex_unlock(&bl_lock);
 
     return ZMK_EV_EVENT_BUBBLE;

@@ -35,6 +35,14 @@ config DONGLE_ALS_MAX_BRIGHTNESS
     range 1 100
     default 100
 
+config DONGLE_ALS_OFF_READING
+    int "Lectura a partir de la cual (hacia abajo) se apaga la pantalla en modo reloj"
+    default 2
+    help
+      Solo con CONFIG_DONGLE_RTC: en reposo la pantalla se queda con la hora,
+      pero a oscuras se apaga del todo. Vuelve a encenderse con una lectura de
+      este valor + 2, o con cualquier tecla.
+
 config DONGLE_ALS_SHOW_READING
     bool "Mostrar la lectura del sensor y el brillo en una esquina (calibracion)"
 
