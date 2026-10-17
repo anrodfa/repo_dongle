@@ -15,4 +15,5 @@ endif()
 # Reloj DS3231 del dongle y &rtc_adj para ponerlo en hora. Con el reloj, la
 # pantalla no se apaga en reposo (pasa a modo reloj), asi que sin sensor de luz
 # no hace falta display_idle_backlight.c.
-target_sources_ifdef(CONFIG_DONGLE_RTC app PRIVATE src/dongle_rtc.c src/behaviors/behavior_rtc_adjust.c)
+target_sources_ifdef(CONFIG_DONGLE_RTC app PRIVATE src/dongle_rtc.c src/behaviors/behavior_rtc_adjust.c
+                     src/fonts/Clock_Time_64.c src/fonts/Clock_Date_30.c)

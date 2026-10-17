@@ -46,10 +46,15 @@
 
 LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
-/* Fuentes del layout classic del modulo: ya estan en flash, no cuestan nada. */
-LV_FONT_DECLARE(FR_Regular_48);
+/* Hora pequena: fuente del layout classic del modulo (ya esta en flash). */
 LV_FONT_DECLARE(FG_Medium_20);
-LV_FONT_DECLARE(FG_Medium_24);
+/*
+ * Modo reloj: FR_Regular_48 (la del rodillo de capas) a 64 px y FG_Medium_24 a
+ * 30 px, solo con los caracteres que se usan. Generadas con tools/scale_font.py
+ * (src/fonts/): el modulo no trae esos tamanos.
+ */
+LV_FONT_DECLARE(Clock_Time_64);
+LV_FONT_DECLARE(Clock_Date_30);
 
 #define DS3231_ADDR 0x68
 
@@ -273,11 +278,11 @@ static void create_widgets(void) {
     lv_obj_set_style_bg_opa(big_panel, LV_OPA_COVER, 0);
     lv_obj_add_flag(big_panel, LV_OBJ_FLAG_HIDDEN);
 
-    big_time = make_label(big_panel, &FR_Regular_48);
-    lv_obj_align(big_time, LV_ALIGN_CENTER, 0, -18);
+    big_time = make_label(big_panel, &Clock_Time_64);
+    lv_obj_align(big_time, LV_ALIGN_CENTER, 0, -24);
 
-    big_date = make_label(big_panel, &FG_Medium_24);
-    lv_obj_align(big_date, LV_ALIGN_CENTER, 0, 30);
+    big_date = make_label(big_panel, &Clock_Date_30);
+    lv_obj_align(big_date, LV_ALIGN_CENTER, 0, 38);
 }
 
 /* Corre en la cola de trabajo de la pantalla: es la unica que puede tocar LVGL. */
