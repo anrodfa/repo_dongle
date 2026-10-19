@@ -19,7 +19,8 @@
  * de dos, el primero espera DOUBLE_TAP_MS antes de actuar.
  *
  * Ojo: ZMK cuenta cualquier evento de input como actividad (activity.c), asi
- * que tocar la pantalla tambien saca del modo reloj, como una tecla.
+ * que tocar la pantalla reinicia la cuenta de IDLE. Pero no saca del modo
+ * reloj: src/dongle_rtc.c ignora el tactil, solo sale con teclas o trackball.
  *
  * Si el driver no arranca (cables, o un clon con otro chip ID, como paso con el
  * sensor de luz), sale un aviso arriba unos segundos con lo que responde.

@@ -10,12 +10,15 @@
  * que es la version de brillo fijo y no se compila a la vez que esta). Con el
  * reloj (CONFIG_DONGLE_RTC) no se apaga: en reposo la pantalla pasa a modo
  * reloj (src/dongle_rtc.c) y sigue con el brillo del sensor, salvo a oscuras
- * (lectura <= CONFIG_DONGLE_ALS_OFF_READING), que se apaga del todo. Con
- * actividad se enciende siempre, aunque este oscuro.
+ * (lectura <= CONFIG_DONGLE_ALS_OFF_READING), que se apaga del todo. Fuera del
+ * modo reloj se enciende siempre, aunque este oscuro. Con el reloj manda el
+ * modo reloj (dongle_backlight_set_clock()), no la actividad de ZMK: un toque
+ * en la pantalla cuenta como actividad pero no saca del reloj.
  *
  * El tactil (src/dongle_touch.c) apaga y enciende la pantalla con un toque:
  * dongle_backlight_toggle(). Apagada asi, se queda a 0 pase lo que pase hasta
- * el siguiente toque.
+ * el siguiente toque. En modo reloj a oscuras, un toque la enciende con el
+ * reloj hasta el siguiente toque o hasta salir del modo reloj.
  *
  * No se usa el hilo del sensor del modulo (PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
  * se queda a n): no sabe nada de IDLE, guarda el brillo en una static que no
@@ -86,13 +89,17 @@ static const struct device *pwm_leds_dev = DEVICE_DT_GET_ONE(pwm_leds);
 
 static const struct i2c_dt_spec als_i2c = I2C_DT_SPEC_GET(DT_NODELABEL(apds9960));
 
-/* Protege idle/dark/target/current entre el listener y el hilo del sensor. */
+/* Protege el estado (idle, dark, target, current...) entre el listener y el hilo del sensor. */
 static K_MUTEX_DEFINE(bl_lock);
 static bool idle;
 /* Habitacion a oscuras (con histeresis); solo cuenta en modo reloj. */
 static bool dark;
+/* Modo reloj (solo con CONFIG_DONGLE_RTC). */
+static bool clock_mode;
 /* Apagada con un toque en la pantalla. */
 static bool forced_off;
+/* Encendida con un toque en modo reloj a oscuras. */
+static bool dark_on;
 /* Brillo que toca segun la luz; se aplica cuando la pantalla esta encendida. */
 static uint8_t target = CONFIG_PROSPECTOR_FIXED_BRIGHTNESS;
 /* Brillo puesto ahora mismo. El modulo pone FIXED_BRIGHTNESS al arrancar. */
@@ -110,15 +117,20 @@ static void set_backlight(uint8_t brightness) {
     current = brightness;
 }
 
+/* Llamar con bl_lock cogido. Si la pantalla deberia estar encendida ahora. */
+static bool screen_on(void) {
+    if (forced_off) {
+        return false;
+    }
+    if (IS_ENABLED(CONFIG_DONGLE_RTC)) {
+        return !(clock_mode && dark && !dark_on);
+    }
+    return !idle;
+}
+
 /* Llamar con bl_lock cogido. Brillo que deberia tener la pantalla ahora. */
 static uint8_t wanted_backlight(void) {
-    if (forced_off) {
-        return 0;
-    }
-    if (idle && (!IS_ENABLED(CONFIG_DONGLE_RTC) || dark)) {
-        return 0;
-    }
-    return target;
+    return screen_on() ? target : 0;
 }
 
 /* log2(x) con 4 bits de fraccion (x >= 1). */
@@ -335,7 +347,19 @@ static int display_als_activity_listener(const zmk_event_t *eh) {
 
 void dongle_backlight_toggle(void) {
     k_mutex_lock(&bl_lock, K_FOREVER);
-    forced_off = !forced_off;
+    bool on = !screen_on();
+    forced_off = !on;
+    /* Encender a oscuras en modo reloj; fuera de el no cambia nada. */
+    dark_on = on;
+    set_backlight(wanted_backlight());
+    k_mutex_unlock(&bl_lock);
+}
+
+/* Lo llama src/dongle_rtc.c al entrar y salir del modo reloj. */
+void dongle_backlight_set_clock(bool on) {
+    k_mutex_lock(&bl_lock, K_FOREVER);
+    clock_mode = on;
+    dark_on = false;
     set_backlight(wanted_backlight());
     k_mutex_unlock(&bl_lock);
 }

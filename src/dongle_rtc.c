@@ -14,6 +14,11 @@
  *   la hora grande y la fecha. El backlight se queda encendido (ver
  *   display_als_backlight.c). La siguiente tecla o movimiento la quita.
  *
+ * El modo reloj no sigue la actividad de ZMK, que tambien cuenta los toques en
+ * la pantalla (src/dongle_touch.c): se entra al pasar a IDLE, pero solo se sale
+ * con una tecla o con el trackball. Asi, encender la pantalla con un toque
+ * desde el reloj vuelve al reloj y no a las capas.
+ *
  * El DS3231 guarda UTC. La hora local es CONFIG_DONGLE_RTC_UTC_OFFSET_MIN mas
  * el horario de verano de la UE (del ultimo domingo de marzo al ultimo de
  * octubre, a la 01:00 UTC), asi que no hay que tocarlo dos veces al ano.
@@ -32,8 +37,10 @@
 
 #include <zephyr/device.h>
 #include <zephyr/drivers/i2c.h>
+#include <zephyr/input/input.h>
 #include <zephyr/kernel.h>
 #include <zephyr/logging/log.h>
+#include <zephyr/sys/atomic.h>
 #include <zephyr/sys/util.h>
 
 #include <lvgl.h>
@@ -41,6 +48,7 @@
 #include <zmk/display.h>
 #include <zmk/event_manager.h>
 #include <zmk/events/activity_state_changed.h>
+#include <zmk/events/position_state_changed.h>
 
 #include <dt-bindings/zmk/rtc_adjust.h>
 
@@ -251,7 +259,8 @@ static const char *const month_names[] = {"ene", "feb", "mar", "abr", "may", "ju
 /* Textos que pinta la cola de la pantalla; se escriben con rtc_lock cogido. */
 static char time_text[8] = "--:--";
 static char date_text[16] = "";
-static bool idle;
+/* En modo reloj (hora grande). Atomico: se mira en cada evento del trackball. */
+static atomic_t clock_mode;
 
 static lv_obj_t *small_time;
 static lv_obj_t *big_panel;
@@ -298,8 +307,8 @@ static void refresh_cb(struct k_work *work) {
     lv_label_set_text(small_time, time_text);
     lv_label_set_text(big_time, time_text);
     lv_label_set_text(big_date, date_text);
-    bool show_big = idle;
     k_mutex_unlock(&rtc_lock);
+    bool show_big = atomic_get(&clock_mode);
 
     if (show_big) {
         lv_obj_add_flag(small_time, LV_OBJ_FLAG_HIDDEN);
@@ -341,6 +350,26 @@ static bool update_texts(void) {
     return changed;
 }
 
+#if IS_ENABLED(CONFIG_DONGLE_ALS)
+void dongle_backlight_set_clock(bool on);
+#else
+static inline void dongle_backlight_set_clock(bool on) {}
+#endif
+
+static void enter_clock_mode(void) {
+    if (atomic_cas(&clock_mode, 0, 1)) {
+        dongle_backlight_set_clock(true);
+        refresh();
+    }
+}
+
+static void leave_clock_mode(void) {
+    if (atomic_cas(&clock_mode, 1, 0)) {
+        dongle_backlight_set_clock(false);
+        refresh();
+    }
+}
+
 static void rtc_thread(void *p1, void *p2, void *p3) {
     ARG_UNUSED(p1);
     ARG_UNUSED(p2);
@@ -350,7 +379,9 @@ static void rtc_thread(void *p1, void *p2, void *p3) {
         LOG_ERR("El reloj DS3231 no responde por I2C");
     }
 
-    idle = zmk_activity_get_state() != ZMK_ACTIVITY_ACTIVE;
+    if (zmk_activity_get_state() != ZMK_ACTIVITY_ACTIVE) {
+        enter_clock_mode();
+    }
     update_texts();
     refresh();
 
@@ -366,22 +397,35 @@ static void rtc_thread(void *p1, void *p2, void *p3) {
 K_THREAD_DEFINE(dongle_rtc_tid, 1024, rtc_thread, NULL, NULL, NULL, K_LOWEST_APPLICATION_THREAD_PRIO,
                 0, 2000);
 
-static int dongle_rtc_activity_listener(const zmk_event_t *eh) {
+/* Se entra al pasar a IDLE; volver a ACTIVE no saca (puede ser un toque). */
+static int dongle_rtc_listener(const zmk_event_t *eh) {
     struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
-    if (ev == NULL) {
-        return ZMK_EV_EVENT_BUBBLE;
+    if (ev != NULL) {
+        if (ev->state != ZMK_ACTIVITY_ACTIVE) {
+            enter_clock_mode();
+        }
+    } else if (as_zmk_position_state_changed(eh) != NULL) {
+        leave_clock_mode();
     }
-
-    k_mutex_lock(&rtc_lock, K_FOREVER);
-    idle = ev->state != ZMK_ACTIVITY_ACTIVE;
-    k_mutex_unlock(&rtc_lock);
-    refresh();
 
     return ZMK_EV_EVENT_BUBBLE;
 }
 
-ZMK_LISTENER(dongle_rtc, dongle_rtc_activity_listener);
+ZMK_LISTENER(dongle_rtc, dongle_rtc_listener);
 ZMK_SUBSCRIPTION(dongle_rtc, zmk_activity_state_changed);
+ZMK_SUBSCRIPTION(dongle_rtc, zmk_position_state_changed);
+
+/* Cualquier input saca del modo reloj (el trackball), menos el tactil. */
+static void dongle_rtc_input_cb(struct input_event *ev, void *user_data) {
+#if IS_ENABLED(CONFIG_DONGLE_TOUCH)
+    if (ev->dev == DEVICE_DT_GET(DT_NODELABEL(touch))) {
+        return;
+    }
+#endif
+    leave_clock_mode();
+}
+
+INPUT_CALLBACK_DEFINE(NULL, dongle_rtc_input_cb, NULL);
 
 /* ---------------------------------------------------------------------------
  * Ajuste desde el keymap (&rtc_adj, src/behaviors/behavior_rtc_adjust.c)
