@@ -18,7 +18,8 @@
  * El tactil (src/dongle_touch.c) apaga y enciende la pantalla con un toque:
  * dongle_backlight_toggle(). Apagada asi, se queda a 0 pase lo que pase hasta
  * el siguiente toque. En modo reloj a oscuras, un toque la enciende con el
- * reloj hasta el siguiente toque o hasta salir del modo reloj.
+ * reloj hasta el siguiente toque o hasta salir del modo reloj. El toque mete
+ * ademas en el modo reloj (lo decide dongle_touch.c).
  *
  * No se usa el hilo del sensor del modulo (PROSPECTOR_USE_AMBIENT_LIGHT_SENSOR
  * se queda a n): no sabe nada de IDLE, guarda el brillo en una static que no
@@ -359,9 +360,19 @@ void dongle_backlight_toggle(void) {
 void dongle_backlight_set_clock(bool on) {
     k_mutex_lock(&bl_lock, K_FOREVER);
     clock_mode = on;
-    dark_on = false;
+    /* Al entrar no: puede ser el toque que acaba de encenderla a oscuras. */
+    if (!on) {
+        dark_on = false;
+    }
     set_backlight(wanted_backlight());
     k_mutex_unlock(&bl_lock);
+}
+
+bool dongle_backlight_is_on(void) {
+    k_mutex_lock(&bl_lock, K_FOREVER);
+    bool on = screen_on();
+    k_mutex_unlock(&bl_lock);
+    return on;
 }
 
 ZMK_LISTENER(display_als_backlight, display_als_activity_listener);

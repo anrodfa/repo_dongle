@@ -10,7 +10,8 @@
  *
  * - Un toque: apaga o enciende la pantalla (dongle_backlight_toggle(), en
  *   display_als_backlight.c). Apagada por toque se queda apagada aunque se
- *   escriba, hasta el siguiente toque.
+ *   escriba, hasta el siguiente toque. Con el reloj, el toque pasa ademas al
+ *   modo reloj: al encender siempre sale la hora, hasta una tecla o trackball.
  * - Dos toques: si el PC esta en suspension, lo despierta. Manda F24 por USB:
  *   con el bus suspendido ZMK no envia la tecla, pide el "remote wakeup", asi
  *   que no llega a escribirse nada. Con el PC despierto no hace nada.
@@ -55,6 +56,13 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 static const struct device *touch_dev = DEVICE_DT_GET(TOUCH_NODE);
 
 void dongle_backlight_toggle(void);
+bool dongle_backlight_is_on(void);
+
+#if IS_ENABLED(CONFIG_DONGLE_RTC)
+void dongle_clock_mode_enter(void);
+#else
+static inline void dongle_clock_mode_enter(void) {}
+#endif
 
 /* ---------------------------------------------------------------------------
  * Acciones (en la cola de trabajo del sistema, no en el hilo de input)
@@ -81,7 +89,18 @@ static atomic_t tap_pending;
 
 static void single_tap_cb(struct k_work *work) {
     /* Si a la vez ha llegado el segundo toque, gana el doble toque. */
-    if (atomic_cas(&tap_pending, 1, 0)) {
+    if (!atomic_cas(&tap_pending, 1, 0)) {
+        return;
+    }
+    /*
+     * Al apagar, el reloj despues: si no, se veria un instante. Al encender,
+     * antes: si no, se veria un instante la pantalla de capas.
+     */
+    if (dongle_backlight_is_on()) {
+        dongle_backlight_toggle();
+        dongle_clock_mode_enter();
+    } else {
+        dongle_clock_mode_enter();
         dongle_backlight_toggle();
     }
 }

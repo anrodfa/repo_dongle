@@ -16,8 +16,9 @@
  *
  * El modo reloj no sigue la actividad de ZMK, que tambien cuenta los toques en
  * la pantalla (src/dongle_touch.c): se entra al pasar a IDLE, pero solo se sale
- * con una tecla o con el trackball. Asi, encender la pantalla con un toque
- * desde el reloj vuelve al reloj y no a las capas.
+ * con una tecla o con el trackball. El tactil tambien mete en el modo reloj
+ * (dongle_clock_mode_enter()): apagar y encender con un toque siempre deja el
+ * reloj, aunque no hayan pasado los 30 s.
  *
  * El DS3231 guarda UTC. La hora local es CONFIG_DONGLE_RTC_UTC_OFFSET_MIN mas
  * el horario de verano de la UE (del ultimo domingo de marzo al ultimo de
@@ -356,7 +357,7 @@ void dongle_backlight_set_clock(bool on);
 static inline void dongle_backlight_set_clock(bool on) {}
 #endif
 
-static void enter_clock_mode(void) {
+void dongle_clock_mode_enter(void) {
     if (atomic_cas(&clock_mode, 0, 1)) {
         dongle_backlight_set_clock(true);
         refresh();
@@ -380,7 +381,7 @@ static void rtc_thread(void *p1, void *p2, void *p3) {
     }
 
     if (zmk_activity_get_state() != ZMK_ACTIVITY_ACTIVE) {
-        enter_clock_mode();
+        dongle_clock_mode_enter();
     }
     update_texts();
     refresh();
@@ -402,7 +403,7 @@ static int dongle_rtc_listener(const zmk_event_t *eh) {
     struct zmk_activity_state_changed *ev = as_zmk_activity_state_changed(eh);
     if (ev != NULL) {
         if (ev->state != ZMK_ACTIVITY_ACTIVE) {
-            enter_clock_mode();
+            dongle_clock_mode_enter();
         }
     } else if (as_zmk_position_state_changed(eh) != NULL) {
         leave_clock_mode();
